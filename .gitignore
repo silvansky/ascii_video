@@ -34,3 +34,22 @@ Temporary Items
 *.ts
 *.mts
 *.m2ts
+
+# Image formats
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.tif
+*.webp
+*.svg
+*.ico
+*.heic
+*.heif
+*.raw
+*.cr2
+*.nef
+*.orf
+*.sr2
