@@ -2,6 +2,7 @@ import argparse
 import sys
 import subprocess
 import json
+import os
 import numpy as np
 import cv2
 from PIL import Image, ImageDraw, ImageFont
@@ -157,11 +158,16 @@ def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None):
 def main():
     parser = argparse.ArgumentParser(description="Fast ASCII Video Generator")
     parser.add_argument("input", help="Path to input video file")
-    parser.add_argument("-o", "--output", help="Path to output video file", default="output_fast.mp4")
+    parser.add_argument("-o", "--output", help="Path to output video file", default=None)
     parser.add_argument("-f", "--fontsize", type=int, help="Font size", default=10)
     parser.add_argument("-s", "--scale", type=float, help="Scale (0.5 is faster)", default=1.0)
     
     args = parser.parse_args()
+    
+    # Set default output filename if not provided
+    if args.output is None:
+        base, ext = os.path.splitext(args.input)
+        args.output = f"{base}_ascii{ext}"
     
     # Font loading
     font_path = "/System/Library/Fonts/Menlo.ttc"
