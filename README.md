@@ -49,6 +49,12 @@ python ascii_video.py input.mp4 -f 8
 python ascii_video.py input.mp4 -s 0.5
 ```
 
+### Example Output
+
+Side-by-side comparison video (original vs ASCII):
+
+<video src="demo/cat_src_collage.mp4" controls width="100%"></video>
+
 ## ASCII Image Converter
 
 Convert single images to ASCII art images.
@@ -80,3 +86,13 @@ python ascii_image.py input.jpg -f 8
 # Scale down the input image
 python ascii_image.py input.jpg -s 0.5
 ```
+
+### Example Output
+
+Example images created with `-f 5`:
+
+**Original → ASCII Art:**
+
+![Cat 1 Original](demo/cat_src.png) → ![Cat 1 ASCII](demo/cat_src_ascii.png)
+
+![Cat 2 Original](demo/cat2_src.png) → ![Cat 2 ASCII](demo/cat2_src_ascii.png)
