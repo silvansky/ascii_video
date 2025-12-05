@@ -121,9 +121,10 @@ def main():
     font_path = "/System/Library/Fonts/Menlo.ttc"
     try:
         font = ImageFont.truetype(font_path, args.fontsize)
+        print(f"Font loaded: {font_path}")
     except IOError:
         font = ImageFont.load_default()
-
+        print("Using default font")
     try:
         process_image_numpy(args.input, font, args.output, args.scale)
     except Exception as e:

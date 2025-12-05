@@ -173,9 +173,10 @@ def main():
     font_path = "/System/Library/Fonts/Menlo.ttc"
     try:
         font = ImageFont.truetype(font_path, args.fontsize)
+        print(f"Font loaded: {font_path}")
     except IOError:
         font = ImageFont.load_default()
-
+        print("Using default font")
     try:
         clip = VideoFileClip(args.input)
         process_video_numpy(clip, font, args.output, args.scale, video_path=args.input)
