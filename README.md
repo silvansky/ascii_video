@@ -48,3 +48,35 @@ python ascii_video.py input.mp4 -f 8
 # Scale down the input video
 python ascii_video.py input.mp4 -s 0.5
 ```
+
+## ASCII Image Converter
+
+Convert single images to ASCII art images.
+
+### Usage
+
+```bash
+python ascii_image.py <input_image> [options]
+```
+
+### Options
+
+- `-o, --output`: Path to output image file (default: input filename with `_ascii` suffix, e.g., `input.jpg` → `input_ascii.jpg`)
+- `-f, --fontsize`: Font size - lower values = higher resolution but slower processing (default: 10)
+- `-s, --scale`: Output scale factor - 1.0 = original size (default: 1.0)
+
+### Examples
+
+```bash
+# Basic conversion (outputs to input_ascii.jpg)
+python ascii_image.py input.jpg
+
+# Custom output filename
+python ascii_image.py input.jpg -o my_ascii_image.png
+
+# Higher resolution (smaller font)
+python ascii_image.py input.jpg -f 8
+
+# Scale down the input image
+python ascii_image.py input.jpg -s 0.5
+```
