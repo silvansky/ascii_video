@@ -58,6 +58,16 @@ def pre_render_chars(font, char_width, char_height):
     Renders every ASCII char into a numpy array (stamp) once.
     Returns a numpy array of shape (num_chars, h, w, 3).
     """
+    # Measure font metrics using a reference character to establish baseline
+    dummy_img = Image.new("RGB", (char_width * 2, char_height * 2))
+    dummy_draw = ImageDraw.Draw(dummy_img)
+    ref_bbox = dummy_draw.textbbox((0, 0), "@", font=font)
+    
+    # Use consistent baseline offset for all characters
+    # This ensures all characters align properly
+    baseline_offset_x = -ref_bbox[0]
+    baseline_offset_y = -ref_bbox[1]
+    
     char_images = []
     
     for char in ASCII_CHARS:
@@ -65,13 +75,12 @@ def pre_render_chars(font, char_width, char_height):
         img = Image.new("RGB", (char_width, char_height), "black")
         draw = ImageDraw.Draw(img)
         
-        # Draw the character in white
-        # Centering logic can be added here if needed, but top-left usually works for monospaced
-        draw.text((0, 0), char, font=font, fill="white")
+        # Draw all characters at the same baseline offset for consistent alignment
+        draw.text((baseline_offset_x, baseline_offset_y), char, font=font, fill="white")
         
         # Convert to numpy array and append
         char_images.append(np.array(img))
-        
+    
     return np.stack(char_images)
 
 def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None):
