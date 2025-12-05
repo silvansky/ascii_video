@@ -53,7 +53,7 @@ python ascii_video.py input.mp4 -s 0.5
 
 Side-by-side comparison video (original vs ASCII):
 
-<video src="demo/cat_src_collage.mp4" controls width="100%"></video>
+[demo/cat_src_collage.mp4](demo/cat_src_collage.mp4)
 
 ## ASCII Image Converter
 
