@@ -1,5 +1,7 @@
 import argparse
 import sys
+import subprocess
+import json
 import numpy as np
 import cv2
 from PIL import Image, ImageDraw, ImageFont
@@ -14,6 +16,41 @@ except ImportError:
 
 # Characters from darkest to lightest (White text on black background means @ is brightest)
 ASCII_CHARS = [" ", ".", ",", "-", "~", "+", "=", "@", "#", "%", "$"]
+
+def get_video_rotation(video_path):
+    """
+    Get rotation metadata from video file using ffprobe.
+    Returns rotation angle in degrees (0, 90, 180, 270) or 0 if not found.
+    """
+    try:
+        cmd = [
+            'ffprobe', '-v', 'quiet', '-print_format', 'json',
+            '-show_streams', '-select_streams', 'v:0', video_path
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        data = json.loads(result.stdout)
+        
+        if 'streams' in data and len(data['streams']) > 0:
+            stream = data['streams'][0]
+            # Check for rotation in tags or side_data_list
+            rotation = 0
+            if 'tags' in stream and 'rotate' in stream['tags']:
+                rotation = int(stream['tags']['rotate'])
+            elif 'side_data_list' in stream:
+                for side_data in stream['side_data_list']:
+                    if side_data.get('rotation'):
+                        rotation = side_data['rotation']
+                        break
+            
+            # Normalize rotation to 0, 90, 180, 270
+            rotation = rotation % 360
+            if rotation not in [0, 90, 180, 270]:
+                rotation = 0
+            return rotation
+    except (subprocess.CalledProcessError, json.JSONDecodeError, KeyError, ValueError):
+        pass
+    
+    return 0
 
 def pre_render_chars(font, char_width, char_height):
     """
@@ -36,7 +73,7 @@ def pre_render_chars(font, char_width, char_height):
         
     return np.stack(char_images)
 
-def process_video_numpy(clip, font, output_path, scale=1.0):
+def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None):
     """
     Fast processing using Numpy tiling.
     """
@@ -54,6 +91,12 @@ def process_video_numpy(clip, font, output_path, scale=1.0):
             clip = clip.resized(scale)
 
     w, h = clip.size
+    
+    # Account for video rotation metadata (swap dimensions if rotated 90/270 degrees)
+    if video_path:
+        rotation = get_video_rotation(video_path)
+        if rotation in [90, 270]:
+            w, h = h, w
     
     # Calculate grid dimensions
     cols = w // char_w
@@ -129,7 +172,7 @@ def main():
 
     try:
         clip = VideoFileClip(args.input)
-        process_video_numpy(clip, font, args.output, args.scale)
+        process_video_numpy(clip, font, args.output, args.scale, video_path=args.input)
     except Exception as e:
         print(f"Error: {e}")
 
