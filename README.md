@@ -55,6 +55,8 @@ Side-by-side comparison video (original vs ASCII):
 
 [demo/cat_src_collage.mp4](demo/cat_src_collage.mp4)
 
+Demo video: https://youtu.be/fYmgNLIDjYE
+
 ## ASCII Image Converter
 
 Convert single images to ASCII art images.
