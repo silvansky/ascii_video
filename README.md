@@ -2,6 +2,8 @@
 
 Convert videos to ASCII art videos.
 
+Tested on macOS only. Font loading should be updated for other systems.
+
 ## Installation
 
 Install the required dependencies:
@@ -17,9 +19,8 @@ pip install opencv-python pillow==9.5.0 moviepy==1.0.3 tqdm numpy
 ```
 
 **Note:** This tool requires `ffmpeg` (specifically `ffprobe`) to be installed on your system for reading video rotation metadata. Install it via:
-- macOS: `brew install ffmpeg`
-- Linux: `sudo apt install ffmpeg` (Debian/Ubuntu) or `sudo yum install ffmpeg` (RHEL/CentOS)
-- Windows: Download from [ffmpeg.org](https://ffmpeg.org/download.html)
+
+`brew install ffmpeg`
 
 ## Usage
 
@@ -67,7 +68,7 @@ Side-by-side comparison video (original vs ASCII):
 
 [demo/cat_src_collage.mp4](demo/cat_src_collage.mp4)
 
-Demo video: https://youtu.be/fYmgNLIDjYE
+Demo video: https://youtu.be/g1qp1b4tuAM
 
 ## ASCII Image Converter
 
