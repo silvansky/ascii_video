@@ -3,12 +3,12 @@ import sys
 import os
 import numpy as np
 import cv2
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageColor
 
 # Characters from darkest to lightest (White text on black background means @ is brightest)
 ASCII_CHARS = [" ", ".", ",", "-", "~", "+", "=", "@", "#", "%", "$"]
 
-def pre_render_chars(font, char_width, char_height):
+def pre_render_chars(font, char_width, char_height, bg_color, fg_color):
     """
     Renders every ASCII char into a numpy array (stamp) once.
     Returns a numpy array of shape (num_chars, h, w, 3).
@@ -26,19 +26,19 @@ def pre_render_chars(font, char_width, char_height):
     char_images = []
     
     for char in ASCII_CHARS:
-        # Create a blank black image for the character
-        img = Image.new("RGB", (char_width, char_height), "black")
+        # Create a blank image for the character with background color
+        img = Image.new("RGB", (char_width, char_height), bg_color)
         draw = ImageDraw.Draw(img)
         
         # Draw all characters at the same baseline offset for consistent alignment
-        draw.text((baseline_offset_x, baseline_offset_y), char, font=font, fill="white")
+        draw.text((baseline_offset_x, baseline_offset_y), char, font=font, fill=fg_color)
         
         # Convert to numpy array and append
         char_images.append(np.array(img))
     
     return np.stack(char_images)
 
-def process_image_numpy(image_path, font, output_path, scale=1.0):
+def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white"):
     """
     Fast processing using Numpy tiling.
     """
@@ -76,7 +76,7 @@ def process_image_numpy(image_path, font, output_path, scale=1.0):
     
     # 2. Pre-render fonts to a lookup table (The Palette)
     # Shape: (11, char_h, char_w, 3)
-    char_palette = pre_render_chars(font, char_w, char_h)
+    char_palette = pre_render_chars(font, char_w, char_h, bg_color, fg_color)
 
     print("Rendering image...")
     
@@ -118,6 +118,8 @@ def main():
     parser.add_argument("-o", "--output", help="Path to output image file", default=None)
     parser.add_argument("-f", "--fontsize", type=int, help="Font size", default=10)
     parser.add_argument("-s", "--scale", type=float, help="Scale (0.5 is faster)", default=1.0)
+    parser.add_argument("--bg-color", help="Background color (e.g., 'black', '#000000')", default="black")
+    parser.add_argument("--fg-color", help="Foreground color (e.g., 'white', '#FFFFFF')", default="white")
     
     args = parser.parse_args()
     
@@ -125,6 +127,14 @@ def main():
     if args.output is None:
         base, ext = os.path.splitext(args.input)
         args.output = f"{base}_ascii{ext}"
+    
+    # Parse colors
+    try:
+        bg_color = ImageColor.getcolor(args.bg_color, "RGB")
+        fg_color = ImageColor.getcolor(args.fg_color, "RGB")
+    except ValueError as e:
+        print(f"Error: Invalid color format. {e}")
+        sys.exit(1)
     
     # Font loading
     font_path = "/System/Library/Fonts/Menlo.ttc"
@@ -135,7 +145,7 @@ def main():
         font = ImageFont.load_default()
         print("Using default font")
     try:
-        process_image_numpy(args.input, font, args.output, args.scale)
+        process_image_numpy(args.input, font, args.output, args.scale, bg_color, fg_color)
     except Exception as e:
         print(f"Error: {e}")
 

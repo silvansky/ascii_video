@@ -32,6 +32,8 @@ python ascii_video.py <input_video> [options]
 - `-o, --output`: Path to output video file (default: input filename with `_ascii` suffix, e.g., `input.mp4` → `input_ascii.mp4`)
 - `-f, --fontsize`: Font size - lower values = higher resolution but slower processing (default: 10)
 - `-s, --scale`: Output scale factor - 1.0 = original size (default: 1.0)
+- `--bg-color`: Background color - accepts color names (e.g., "black", "white") or hex codes (e.g., "#000000") (default: "black")
+- `--fg-color`: Foreground color - accepts color names (e.g., "white", "black") or hex codes (e.g., "#FFFFFF") (default: "white")
 
 ### Examples
 
@@ -47,6 +49,12 @@ python ascii_video.py input.mp4 -f 8
 
 # Scale down the input video
 python ascii_video.py input.mp4 -s 0.5
+
+# Custom colors (inverted: white background, black text)
+python ascii_video.py input.mp4 --bg-color white --fg-color black
+
+# Custom colors using hex codes
+python ascii_video.py input.mp4 --bg-color "#0000FF" --fg-color "#FFFF00"
 ```
 
 ### Example Output
@@ -72,6 +80,8 @@ python ascii_image.py <input_image> [options]
 - `-o, --output`: Path to output image file (default: input filename with `_ascii` suffix, e.g., `input.jpg` → `input_ascii.jpg`)
 - `-f, --fontsize`: Font size - lower values = higher resolution but slower processing (default: 10)
 - `-s, --scale`: Output scale factor - 1.0 = original size (default: 1.0)
+- `--bg-color`: Background color - accepts color names (e.g., "black", "white") or hex codes (e.g., "#000000") (default: "black")
+- `--fg-color`: Foreground color - accepts color names (e.g., "white", "black") or hex codes (e.g., "#FFFFFF") (default: "white")
 
 ### Examples
 
@@ -87,6 +97,12 @@ python ascii_image.py input.jpg -f 8
 
 # Scale down the input image
 python ascii_image.py input.jpg -s 0.5
+
+# Custom colors (inverted: white background, black text)
+python ascii_image.py input.jpg --bg-color white --fg-color black
+
+# Custom colors using hex codes
+python ascii_image.py input.jpg --bg-color "#0000FF" --fg-color "#FFFF00"
 ```
 
 ### Example Output
