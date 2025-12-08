@@ -83,7 +83,7 @@ def pre_render_chars(font, char_width, char_height, bg_color, fg_color):
     
     return np.stack(char_images)
 
-def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_color="black", fg_color="white"):
+def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_color="black", fg_color="white", invert_brightness=False):
     """
     Fast processing using Numpy tiling.
     """
@@ -136,7 +136,10 @@ def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_
         # B. Map pixels to Indices
         # Map 0-255 brightness to 0-(len(ASCII)-1) indices
         # We explicitly cast to int to use as indices
-        indices = (img_small / 255 * (len(ASCII_CHARS) - 1)).astype(int)
+        if invert_brightness:
+            indices = ((255 - img_small) / 255 * (len(ASCII_CHARS) - 1)).astype(int)
+        else:
+            indices = (img_small / 255 * (len(ASCII_CHARS) - 1)).astype(int)
 
         # C. The Magic Trick (Advanced Numpy Indexing)
         # Instead of looping, we use the indices to lookup pixels from the palette.
@@ -172,6 +175,7 @@ def main():
     parser.add_argument("-s", "--scale", type=float, help="Scale (0.5 is faster)", default=1.0)
     parser.add_argument("--bg-color", help="Background color (e.g., 'black', '#000000')", default="black")
     parser.add_argument("--fg-color", help="Foreground color (e.g., 'white', '#FFFFFF')", default="white")
+    parser.add_argument("--invert-brightness", action="store_true", help="Invert brightness mapping (bright areas become dark characters)")
     
     args = parser.parse_args()
     
@@ -198,7 +202,7 @@ def main():
         print("Using default font")
     try:
         clip = VideoFileClip(args.input)
-        process_video_numpy(clip, font, args.output, args.scale, video_path=args.input, bg_color=bg_color, fg_color=fg_color)
+        process_video_numpy(clip, font, args.output, args.scale, video_path=args.input, bg_color=bg_color, fg_color=fg_color, invert_brightness=args.invert_brightness)
     except Exception as e:
         print(f"Error: {e}")
 

@@ -34,6 +34,7 @@ python ascii_video.py <input_video> [options]
 - `-s, --scale`: Output scale factor - 1.0 = original size (default: 1.0)
 - `--bg-color`: Background color - accepts color names (e.g., "black", "white") or hex codes (e.g., "#000000") (default: "black")
 - `--fg-color`: Foreground color - accepts color names (e.g., "white", "black") or hex codes (e.g., "#FFFFFF") (default: "white")
+- `--invert-brightness`: Invert brightness mapping - bright areas become dark characters, dark areas become bright characters
 
 ### Examples
 
@@ -55,6 +56,9 @@ python ascii_video.py input.mp4 --bg-color white --fg-color black
 
 # Custom colors using hex codes
 python ascii_video.py input.mp4 --bg-color "#0000FF" --fg-color "#FFFF00"
+
+# Invert brightness mapping
+python ascii_video.py input.mp4 --invert-brightness
 ```
 
 ### Example Output
@@ -82,6 +86,7 @@ python ascii_image.py <input_image> [options]
 - `-s, --scale`: Output scale factor - 1.0 = original size (default: 1.0)
 - `--bg-color`: Background color - accepts color names (e.g., "black", "white") or hex codes (e.g., "#000000") (default: "black")
 - `--fg-color`: Foreground color - accepts color names (e.g., "white", "black") or hex codes (e.g., "#FFFFFF") (default: "white")
+- `--invert-brightness`: Invert brightness mapping - bright areas become dark characters, dark areas become bright characters
 
 ### Examples
 
@@ -103,6 +108,9 @@ python ascii_image.py input.jpg --bg-color white --fg-color black
 
 # Custom colors using hex codes
 python ascii_image.py input.jpg --bg-color "#0000FF" --fg-color "#FFFF00"
+
+# Invert brightness mapping
+python ascii_image.py input.jpg --invert-brightness
 ```
 
 ### Example Output

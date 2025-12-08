@@ -38,7 +38,7 @@ def pre_render_chars(font, char_width, char_height, bg_color, fg_color):
     
     return np.stack(char_images)
 
-def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white"):
+def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False):
     """
     Fast processing using Numpy tiling.
     """
@@ -89,7 +89,10 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
     # B. Map pixels to Indices
     # Map 0-255 brightness to 0-(len(ASCII)-1) indices
     # We explicitly cast to int to use as indices
-    indices = (img_small / 255 * (len(ASCII_CHARS) - 1)).astype(int)
+    if invert_brightness:
+        indices = ((255 - img_small) / 255 * (len(ASCII_CHARS) - 1)).astype(int)
+    else:
+        indices = (img_small / 255 * (len(ASCII_CHARS) - 1)).astype(int)
 
     # C. The Magic Trick (Advanced Numpy Indexing)
     # Instead of looping, we use the indices to lookup pixels from the palette.
@@ -120,6 +123,7 @@ def main():
     parser.add_argument("-s", "--scale", type=float, help="Scale (0.5 is faster)", default=1.0)
     parser.add_argument("--bg-color", help="Background color (e.g., 'black', '#000000')", default="black")
     parser.add_argument("--fg-color", help="Foreground color (e.g., 'white', '#FFFFFF')", default="white")
+    parser.add_argument("--invert-brightness", action="store_true", help="Invert brightness mapping (bright areas become dark characters)")
     
     args = parser.parse_args()
     
@@ -145,7 +149,7 @@ def main():
         font = ImageFont.load_default()
         print("Using default font")
     try:
-        process_image_numpy(args.input, font, args.output, args.scale, bg_color, fg_color)
+        process_image_numpy(args.input, font, args.output, args.scale, bg_color, fg_color, args.invert_brightness)
     except Exception as e:
         print(f"Error: {e}")
 
