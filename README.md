@@ -84,6 +84,8 @@ python ascii_image.py <input_image> [options]
 
 - `-o, --output`: Path to output image file (default: input filename with `_ascii` suffix, e.g., `input.jpg` → `input_ascii.jpg`)
 - `-f, --fontsize`: Font size - lower values = higher resolution but slower processing (default: 10)
+
+  @image[fontsize_animation.gif]
 - `-s, --scale`: Output scale factor - 1.0 = original size (default: 1.0)
 - `--bg-color`: Background color - accepts color names (e.g., "black", "white") or hex codes (e.g., "#000000") (default: "black")
 - `--fg-color`: Foreground color - accepts color names (e.g., "white", "black") or hex codes (e.g., "#FFFFFF") (default: "white")
