@@ -37,6 +37,7 @@ python ascii_video.py <input_video> [options]
 - `--fg-color`: Foreground color - accepts color names (e.g., "white", "black") or hex codes (e.g., "#FFFFFF") (default: "white")
 - `--invert-brightness`: Invert brightness mapping - bright areas become dark characters, dark areas become bright characters
 - `--blocks`: Use ASCII block characters (█ ▓ ▒ ░ space) instead of regular characters
+- `--preserve-colors`: Preserve original colors from the image/video - ignores fg-color, disables grayscale conversion and brightness normalization
 
 ### Examples
 
@@ -64,6 +65,9 @@ python ascii_video.py input.mp4 --invert-brightness
 
 # Use ASCII block characters
 python ascii_video.py input.mp4 --blocks
+
+# Preserve original colors
+python ascii_video.py input.mp4 --preserve-colors
 ```
 
 ### Example Output
@@ -95,6 +99,7 @@ python ascii_image.py <input_image> [options]
 - `--fg-color`: Foreground color - accepts color names (e.g., "white", "black") or hex codes (e.g., "#FFFFFF") (default: "white")
 - `--invert-brightness`: Invert brightness mapping - bright areas become dark characters, dark areas become bright characters
 - `--blocks`: Use ASCII block characters (█ ▓ ▒ ░ space) instead of regular characters
+- `--preserve-colors`: Preserve original colors from the image/video - ignores fg-color, disables grayscale conversion and brightness normalization
 
 ### Examples
 
@@ -122,6 +127,9 @@ python ascii_image.py input.jpg --invert-brightness
 
 # Use ASCII block characters
 python ascii_image.py input.jpg --blocks
+
+# Preserve original colors
+python ascii_image.py input.jpg --preserve-colors
 ```
 
 ### Example Output

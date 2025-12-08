@@ -85,7 +85,7 @@ def measure_font_metrics(font):
     char_h = bbox[3] - bbox[1]
     return char_w, char_h
 
-def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, num_chars=None):
+def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, num_chars=None, preserve_colors=False, bg_color=(0, 0, 0), fg_color=(255, 255, 255)):
     """
     Process a single frame (numpy array) into ASCII art.
     
@@ -96,6 +96,9 @@ def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, 
         char_h: character height in pixels
         invert_brightness: if True, invert brightness mapping
         num_chars: number of characters in palette (if None, uses len(char_palette))
+        preserve_colors: if True, preserve original colors and skip grayscale/normalization
+        bg_color: background color tuple (RGB) - used for color preservation
+        fg_color: foreground color tuple (RGB) - used for color preservation
     
     Returns:
         numpy array of shape (rows * char_h, cols * char_w, 3) - ASCII art image
@@ -106,44 +109,77 @@ def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, 
     cols = w // char_w
     rows = h // char_h
     
-    # A. Pre-processing: Grayscale & Resize
-    # We resize the Frame to the Grid Size (small)
-    # Convert to B/W
-    img_gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-    img_small = cv2.resize(img_gray, (cols, rows), interpolation=cv2.INTER_NEAREST)
-
-    # B. Map pixels to Indices
-    # Normalize brightness to use full range, then map to 0-(num_chars-1) indices
-    # We explicitly cast to int to use as indices
-    if num_chars is None:
-        num_chars = len(char_palette)
-    
-    # Normalize to 0-1 range using min/max to ensure full range is used
-    img_min = img_small.min()
-    img_max = img_small.max()
-    if img_max > img_min:
-        img_normalized = (img_small - img_min) / (img_max - img_min)
+    if preserve_colors:
+        # Preserve colors mode: skip grayscale and normalization
+        # Resize RGB frame to grid size
+        img_small_rgb = cv2.resize(frame, (cols, rows), interpolation=cv2.INTER_AREA)
+        
+        # Calculate brightness for character selection (but don't normalize)
+        # Use luminance formula: 0.299*R + 0.587*G + 0.114*B
+        img_brightness = (0.299 * img_small_rgb[:, :, 0] + 
+                         0.587 * img_small_rgb[:, :, 1] + 
+                         0.114 * img_small_rgb[:, :, 2])
+        
+        if num_chars is None:
+            num_chars = len(char_palette)
+        
+        # Map brightness directly to indices without normalization
+        # Use full 0-255 range mapped to 0-(num_chars-1)
+        if invert_brightness:
+            indices = ((255.0 - img_brightness) / 255.0 * (num_chars - 1)).astype(int)
+        else:
+            indices = (img_brightness / 255.0 * (num_chars - 1)).astype(int)
+        
+        indices = np.clip(indices, 0, num_chars - 1)
+        
+        # Get selected characters
+        tiled_chars = char_palette[indices]  # (rows, cols, char_h, char_w, 3)
+        
+        # Colorize characters based on original pixel colors
+        bg_color_arr = np.array(bg_color, dtype=np.float32)
+        fg_color_arr = np.array(fg_color, dtype=np.float32)
+        
+        # Expand sampled colors to match character dimensions
+        cell_colors = img_small_rgb.astype(np.float32)  # (rows, cols, 3)
+        cell_colors_expanded = cell_colors[:, :, np.newaxis, np.newaxis, :]  # (rows, cols, 1, 1, 3)
+        
+        # Create mask: pixels that are closer to fg_color than bg_color (character pixels)
+        tiled_chars_float = tiled_chars.astype(np.float32)
+        char_diff_fg = np.sum((tiled_chars_float - fg_color_arr) ** 2, axis=-1, keepdims=True)
+        char_diff_bg = np.sum((tiled_chars_float - bg_color_arr) ** 2, axis=-1, keepdims=True)
+        fg_mask = (char_diff_fg < char_diff_bg).astype(np.float32)  # (rows, cols, char_h, char_w, 1)
+        
+        # Apply color: character pixels get the sampled color, background is black
+        tiled_chars = (cell_colors_expanded * fg_mask).astype(np.uint8)
+        
     else:
-        img_normalized = img_small / 255.0
-    
-    if invert_brightness:
-        indices = ((1.0 - img_normalized) * (num_chars - 1)).astype(int)
-    else:
-        indices = (img_normalized * (num_chars - 1)).astype(int)
-    
-    # Ensure indices are within valid range
-    indices = np.clip(indices, 0, num_chars - 1)
+        # Original mode: Grayscale & Normalize
+        img_gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+        img_small = cv2.resize(img_gray, (cols, rows), interpolation=cv2.INTER_NEAREST)
 
-    # C. The Magic Trick (Advanced Numpy Indexing)
-    # Instead of looping, we use the indices to lookup pixels from the palette.
-    # Result shape: (rows, cols, char_h, char_w, 3)
-    tiled_chars = char_palette[indices]
+        # Map pixels to Indices
+        if num_chars is None:
+            num_chars = len(char_palette)
+        
+        # Normalize to 0-1 range using min/max to ensure full range is used
+        img_min = img_small.min()
+        img_max = img_small.max()
+        if img_max > img_min:
+            img_normalized = (img_small - img_min) / (img_max - img_min)
+        else:
+            img_normalized = img_small / 255.0
+        
+        if invert_brightness:
+            indices = ((1.0 - img_normalized) * (num_chars - 1)).astype(int)
+        else:
+            indices = (img_normalized * (num_chars - 1)).astype(int)
+        
+        indices = np.clip(indices, 0, num_chars - 1)
 
-    # D. Stitching (Reshaping)
-    # We need to rearrange axes to form the final image.
-    # Current: (rows, cols, char_h, char_w, 3)
-    # Target:  (rows * char_h, cols * char_w, 3)
-    
+        # The Magic Trick (Advanced Numpy Indexing)
+        tiled_chars = char_palette[indices]
+
+    # Stitching (Reshaping)
     # Swap axes to: (rows, char_h, cols, char_w, 3)
     tiled_chars = tiled_chars.swapaxes(1, 2)
     
