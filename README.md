@@ -36,6 +36,7 @@ python ascii_video.py <input_video> [options]
 - `--bg-color`: Background color - accepts color names (e.g., "black", "white") or hex codes (e.g., "#000000") (default: "black")
 - `--fg-color`: Foreground color - accepts color names (e.g., "white", "black") or hex codes (e.g., "#FFFFFF") (default: "white")
 - `--invert-brightness`: Invert brightness mapping - bright areas become dark characters, dark areas become bright characters
+- `--blocks`: Use ASCII block characters (█ ▓ ▒ ░ space) instead of regular characters
 
 ### Examples
 
@@ -60,6 +61,9 @@ python ascii_video.py input.mp4 --bg-color "#0000FF" --fg-color "#FFFF00"
 
 # Invert brightness mapping
 python ascii_video.py input.mp4 --invert-brightness
+
+# Use ASCII block characters
+python ascii_video.py input.mp4 --blocks
 ```
 
 ### Example Output
@@ -90,6 +94,7 @@ python ascii_image.py <input_image> [options]
 - `--bg-color`: Background color - accepts color names (e.g., "black", "white") or hex codes (e.g., "#000000") (default: "black")
 - `--fg-color`: Foreground color - accepts color names (e.g., "white", "black") or hex codes (e.g., "#FFFFFF") (default: "white")
 - `--invert-brightness`: Invert brightness mapping - bright areas become dark characters, dark areas become bright characters
+- `--blocks`: Use ASCII block characters (█ ▓ ▒ ░ space) instead of regular characters
 
 ### Examples
 
@@ -114,6 +119,9 @@ python ascii_image.py input.jpg --bg-color "#0000FF" --fg-color "#FFFF00"
 
 # Invert brightness mapping
 python ascii_image.py input.jpg --invert-brightness
+
+# Use ASCII block characters
+python ascii_image.py input.jpg --blocks
 ```
 
 ### Example Output

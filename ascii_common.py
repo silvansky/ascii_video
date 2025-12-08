@@ -9,15 +9,22 @@ from PIL import Image, ImageDraw, ImageFont, ImageColor
 # Characters from darkest to lightest (White text on black background means @ is brightest)
 ASCII_CHARS = [" ", ".", ",", "-", "~", "+", "=", "@", "#", "%", "$"]
 
-def pre_render_chars(font, char_width, char_height, bg_color, fg_color):
+# ASCII block characters from darkest to lightest
+ASCII_BLOCKS = [" ", "░", "▒", "▓", "█"]
+
+def pre_render_chars(font, char_width, char_height, bg_color, fg_color, use_blocks=False):
     """
     Renders every ASCII char into a numpy array (stamp) once.
     Returns a numpy array of shape (num_chars, h, w, 3).
     """
+    # Select character set
+    chars = ASCII_BLOCKS if use_blocks else ASCII_CHARS
+    
     # Measure font metrics using a reference character to establish baseline
     dummy_img = Image.new("RGB", (char_width * 2, char_height * 2))
     dummy_draw = ImageDraw.Draw(dummy_img)
-    ref_bbox = dummy_draw.textbbox((0, 0), "@", font=font)
+    ref_char = "█" if use_blocks else "@"
+    ref_bbox = dummy_draw.textbbox((0, 0), ref_char, font=font)
     
     # Use consistent baseline offset for all characters
     # This ensures all characters align properly
@@ -26,7 +33,7 @@ def pre_render_chars(font, char_width, char_height, bg_color, fg_color):
     
     char_images = []
     
-    for char in ASCII_CHARS:
+    for char in chars:
         # Create a blank image for the character with background color
         img = Image.new("RGB", (char_width, char_height), bg_color)
         draw = ImageDraw.Draw(img)
@@ -78,7 +85,7 @@ def measure_font_metrics(font):
     char_h = bbox[3] - bbox[1]
     return char_w, char_h
 
-def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False):
+def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, num_chars=None):
     """
     Process a single frame (numpy array) into ASCII art.
     
@@ -88,6 +95,7 @@ def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False):
         char_w: character width in pixels
         char_h: character height in pixels
         invert_brightness: if True, invert brightness mapping
+        num_chars: number of characters in palette (if None, uses len(char_palette))
     
     Returns:
         numpy array of shape (rows * char_h, cols * char_w, 3) - ASCII art image
@@ -105,12 +113,26 @@ def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False):
     img_small = cv2.resize(img_gray, (cols, rows), interpolation=cv2.INTER_NEAREST)
 
     # B. Map pixels to Indices
-    # Map 0-255 brightness to 0-(len(ASCII)-1) indices
+    # Normalize brightness to use full range, then map to 0-(num_chars-1) indices
     # We explicitly cast to int to use as indices
-    if invert_brightness:
-        indices = ((255 - img_small) / 255 * (len(ASCII_CHARS) - 1)).astype(int)
+    if num_chars is None:
+        num_chars = len(char_palette)
+    
+    # Normalize to 0-1 range using min/max to ensure full range is used
+    img_min = img_small.min()
+    img_max = img_small.max()
+    if img_max > img_min:
+        img_normalized = (img_small - img_min) / (img_max - img_min)
     else:
-        indices = (img_small / 255 * (len(ASCII_CHARS) - 1)).astype(int)
+        img_normalized = img_small / 255.0
+    
+    if invert_brightness:
+        indices = ((1.0 - img_normalized) * (num_chars - 1)).astype(int)
+    else:
+        indices = (img_normalized * (num_chars - 1)).astype(int)
+    
+    # Ensure indices are within valid range
+    indices = np.clip(indices, 0, num_chars - 1)
 
     # C. The Magic Trick (Advanced Numpy Indexing)
     # Instead of looping, we use the indices to lookup pixels from the palette.
