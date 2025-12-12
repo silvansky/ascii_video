@@ -14,7 +14,7 @@ SOURCES = {
     "video": "cat_src.mp4"
 }
 
-FONT_SIZE = 10
+FONT_SIZE = 5
 FONT_SIZE_VIDEO = 10
 
 def run_command(cmd, description):
