@@ -20,13 +20,19 @@ ASCII_ALPHABET = [' ', 'r', 'j', 'v', 'x', 'c', 'z', 'l', 'Y', 'L', 'n', 'u', 's
 # Space is added at the beginning for the darkest color
 ASCII_DIGITS = [' ', '7', '1', '2', '4', '3', '5', '6', '9', '8', '0']
 
-def pre_render_chars(font, char_width, char_height, bg_color, fg_color, use_blocks=False, use_alphabet=False, use_digits=False):
+# Alphanumeric characters (letters + digits) from darkest to lightest (measured brightness order)
+# Space is added at the beginning for the darkest color
+ASCII_ALPHANUMERIC = [' ', 'r', 'v', 'x', 'c', 'z', 'l', '7', 'j', 'Y', 'L', 'n', 'u', 's', 'y', 'J', 'w', 'i', '1', 't', 'T', 'f', 'C', 'o', 'V', 'I', '2', 'k', 'F', 'S', 'h', 'X', '4', 'a', 'Z', '3', 'm', 'A', '5', 'p', 'q', 'U', 'P', 'e', 'K', 'G', 'b', 'd', '6', '9', 'O', 'H', 'E', 'g', 'D', 'Q', 'R', '8', 'W', 'M', 'B', 'N', '0']
+
+def pre_render_chars(font, char_width, char_height, bg_color, fg_color, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False):
     """
     Renders every ASCII char into a numpy array (stamp) once.
     Returns a numpy array of shape (num_chars, h, w, 3).
     """
     # Select character set
-    if use_digits:
+    if use_alphanumeric:
+        chars = ASCII_ALPHANUMERIC
+    elif use_digits:
         chars = ASCII_DIGITS
     elif use_alphabet:
         chars = ASCII_ALPHABET
@@ -112,7 +118,7 @@ def measure_font_metrics(font):
     dummy_draw = ImageDraw.Draw(dummy_img)
     
     # Collect all characters from all sets
-    all_chars = set(ASCII_CHARS + ASCII_BLOCKS + ASCII_ALPHABET + ASCII_DIGITS)
+    all_chars = set(ASCII_CHARS + ASCII_BLOCKS + ASCII_ALPHABET + ASCII_DIGITS + ASCII_ALPHANUMERIC)
     
     # First pass: find baseline offsets (minimum left and top)
     min_left = float('inf')

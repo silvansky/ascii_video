@@ -5,11 +5,11 @@ import numpy as np
 import cv2
 from PIL import Image
 from ascii_common import (
-    ASCII_CHARS, ASCII_BLOCKS, ASCII_ALPHABET, ASCII_DIGITS, pre_render_chars, load_font, parse_colors,
+    ASCII_CHARS, ASCII_BLOCKS, ASCII_ALPHABET, ASCII_DIGITS, ASCII_ALPHANUMERIC, pre_render_chars, load_font, parse_colors,
     measure_font_metrics, process_frame
 )
 
-def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, use_blocks=False, use_alphabet=False, use_digits=False, preserve_colors=False):
+def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False, preserve_colors=False):
     """
     Fast processing using Numpy tiling.
     """
@@ -43,8 +43,10 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
     print(f"Char Size: {char_w}x{char_h}")
     
     # Pre-render fonts to a lookup table (The Palette)
-    char_palette = pre_render_chars(font, char_w, char_h, bg_color, fg_color, use_blocks, use_alphabet, use_digits)
-    if use_digits:
+    char_palette = pre_render_chars(font, char_w, char_h, bg_color, fg_color, use_blocks, use_alphabet, use_digits, use_alphanumeric)
+    if use_alphanumeric:
+        num_chars = len(ASCII_ALPHANUMERIC)
+    elif use_digits:
         num_chars = len(ASCII_DIGITS)
     elif use_alphabet:
         num_chars = len(ASCII_ALPHABET)
@@ -75,6 +77,7 @@ def main():
     parser.add_argument("--blocks", action="store_true", help="Use ASCII block characters (█ ▓ ▒ ░ space) instead of regular characters")
     parser.add_argument("--alphabet", action="store_true", help="Use alphabet letters only (a-z, A-Z) instead of regular characters")
     parser.add_argument("--digits", action="store_true", help="Use digits only (0-9) instead of regular characters")
+    parser.add_argument("--alphanumeric", action="store_true", help="Use alphanumeric characters (a-z, A-Z, 0-9) instead of regular characters")
     parser.add_argument("--preserve-colors", action="store_true", help="Preserve original colors (ignores fg-color, disables grayscale and normalization)")
     
     args = parser.parse_args()
@@ -90,7 +93,7 @@ def main():
     # Font loading
     font = load_font(args.fontsize)
     try:
-        process_image_numpy(args.input, font, args.output, args.scale, bg_color, fg_color, args.invert_brightness, args.blocks, args.alphabet, args.digits, args.preserve_colors)
+        process_image_numpy(args.input, font, args.output, args.scale, bg_color, fg_color, args.invert_brightness, args.blocks, args.alphabet, args.digits, args.alphanumeric, args.preserve_colors)
     except Exception as e:
         print(f"Error: {e}")
 
