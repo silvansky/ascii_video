@@ -170,7 +170,7 @@ def measure_font_metrics(font):
     # Return integer dimensions
     return int(round(char_w + padding_w)), int(round(char_h + padding_h))
 
-def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, num_chars=None, preserve_colors=False, bg_color=(0, 0, 0), fg_color=(255, 255, 255)):
+def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, num_chars=None, preserve_colors=False, bg_color=(0, 0, 0), fg_color=(255, 255, 255), swap_dims=False):
     """
     Process a single frame (numpy array) into ASCII art.
     
@@ -184,11 +184,14 @@ def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, 
         preserve_colors: if True, preserve original colors and skip grayscale/normalization
         bg_color: background color tuple (RGB) - used for color preservation
         fg_color: foreground color tuple (RGB) - used for color preservation
+        swap_dims: if True, swap h and w (for rotated videos)
     
     Returns:
         numpy array of shape (rows * char_h, cols * char_w, 3) - ASCII art image
     """
     h, w = frame.shape[:2]
+    if swap_dims:
+        h, w = w, h
     
     # Calculate grid dimensions
     cols = w // char_w

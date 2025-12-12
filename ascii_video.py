@@ -72,11 +72,14 @@ def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_
     
     # Account for video rotation metadata (swap dimensions if rotated 90/270 degrees)
     rotation = 0
+    swap_dims = False
     if video_path:
         rotation = get_video_rotation(video_path)
         print(f"Video rotation: {rotation}°")
         if rotation in [90, 270]:
+            print(f"Swapping dimensions for rotation: {w}x{h} -> {h}x{w}")
             w, h = h, w
+            swap_dims = True
     
     # Calculate grid dimensions
     cols = w // char_w
@@ -106,7 +109,7 @@ def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_
     # We use a generator to process frames
     for frame in tqdm(clip.iter_frames(), total=int(clip.fps * clip.duration)):
         # Process frame using common function
-        final_frame = process_frame(frame, char_palette, char_w, char_h, invert_brightness, num_chars, preserve_colors, bg_color, fg_color)
+        final_frame = process_frame(frame, char_palette, char_w, char_h, invert_brightness, num_chars, preserve_colors, bg_color, fg_color, swap_dims)
         processed_frames.append(final_frame)
 
     print("Encoding video...")
