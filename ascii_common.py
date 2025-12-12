@@ -13,7 +13,8 @@ ASCII_CHARS = [" ", ".", ",", "-", "~", "+", "=", "@", "#", "%", "$"]
 ASCII_BLOCKS = [" ", "░", "▒", "▓", "█"]
 
 # Alphabet letters from darkest to lightest (measured brightness order)
-ASCII_ALPHABET = ['r', 'j', 'v', 'x', 'c', 'z', 'l', 'Y', 'L', 'n', 'u', 's', 'y', 'J', 'w', 'i', 't', 'T', 'f', 'C', 'o', 'V', 'I', 'k', 'F', 'S', 'h', 'X', 'a', 'Z', 'm', 'A', 'p', 'q', 'U', 'P', 'e', 'K', 'G', 'b', 'd', 'O', 'H', 'E', 'g', 'D', 'Q', 'R', 'W', 'M', 'B', 'N']
+# Space is added at the beginning for the darkest color
+ASCII_ALPHABET = [' ', 'r', 'j', 'v', 'x', 'c', 'z', 'l', 'Y', 'L', 'n', 'u', 's', 'y', 'J', 'w', 'i', 't', 'T', 'f', 'C', 'o', 'V', 'I', 'k', 'F', 'S', 'h', 'X', 'a', 'Z', 'm', 'A', 'p', 'q', 'U', 'P', 'e', 'K', 'G', 'b', 'd', 'O', 'H', 'E', 'g', 'D', 'Q', 'R', 'W', 'M', 'B', 'N']
 
 def pre_render_chars(font, char_width, char_height, bg_color, fg_color, use_blocks=False, use_alphabet=False):
     """
