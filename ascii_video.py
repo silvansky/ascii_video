@@ -15,7 +15,7 @@ except ImportError:
 
 from ascii_common import (
     ASCII_CHARS, ASCII_BLOCKS, ASCII_ALPHABET, ASCII_DIGITS, ASCII_ALPHANUMERIC, pre_render_chars, load_font, parse_colors,
-    measure_font_metrics, process_frame
+    measure_font_metrics, process_frame, AsciiFrameOptions
 )
 
 def get_video_rotation(video_path):
@@ -104,12 +104,25 @@ def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_
 
     processed_frames = []
     
+    # Create options object
+    options = AsciiFrameOptions(
+        char_palette=char_palette,
+        char_w=char_w,
+        char_h=char_h,
+        invert_brightness=invert_brightness,
+        num_chars=num_chars,
+        preserve_colors=preserve_colors,
+        bg_color=bg_color,
+        fg_color=fg_color,
+        swap_dims=swap_dims
+    )
+    
     print("Rendering frames...")
     
     # We use a generator to process frames
     for frame in tqdm(clip.iter_frames(), total=int(clip.fps * clip.duration)):
         # Process frame using common function
-        final_frame = process_frame(frame, char_palette, char_w, char_h, invert_brightness, num_chars, preserve_colors, bg_color, fg_color, swap_dims)
+        final_frame = process_frame(frame, options)
         processed_frames.append(final_frame)
 
     print("Encoding video...")

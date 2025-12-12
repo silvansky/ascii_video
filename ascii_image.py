@@ -6,7 +6,7 @@ import cv2
 from PIL import Image
 from ascii_common import (
     ASCII_CHARS, ASCII_BLOCKS, ASCII_ALPHABET, ASCII_DIGITS, ASCII_ALPHANUMERIC, pre_render_chars, load_font, parse_colors,
-    measure_font_metrics, process_frame
+    measure_font_metrics, process_frame, AsciiFrameOptions
 )
 
 def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False, preserve_colors=False):
@@ -57,8 +57,21 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
 
     print("Rendering image...")
     
+    # Create options object
+    options = AsciiFrameOptions(
+        char_palette=char_palette,
+        char_w=char_w,
+        char_h=char_h,
+        invert_brightness=invert_brightness,
+        num_chars=num_chars,
+        preserve_colors=preserve_colors,
+        bg_color=bg_color,
+        fg_color=fg_color,
+        swap_dims=False
+    )
+    
     # Process frame using common function
-    final_image = process_frame(frame, char_palette, char_w, char_h, invert_brightness, num_chars, preserve_colors, bg_color, fg_color)
+    final_image = process_frame(frame, options)
     
     # Convert back to PIL Image and save
     output_img = Image.fromarray(final_image.astype(np.uint8))

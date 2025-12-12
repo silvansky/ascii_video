@@ -2,6 +2,7 @@
 Common utilities for ASCII image and video processing.
 """
 import sys
+from dataclasses import dataclass
 import numpy as np
 import cv2
 from PIL import Image, ImageDraw, ImageFont, ImageColor
@@ -23,6 +24,19 @@ ASCII_DIGITS = [' ', '7', '1', '2', '4', '3', '5', '6', '9', '8', '0']
 # Alphanumeric characters (letters + digits) from darkest to lightest (measured brightness order)
 # Space is added at the beginning for the darkest color
 ASCII_ALPHANUMERIC = [' ', 'r', 'v', 'x', 'c', 'z', 'l', '7', 'j', 'Y', 'L', 'n', 'u', 's', 'y', 'J', 'w', 'i', '1', 't', 'T', 'f', 'C', 'o', 'V', 'I', '2', 'k', 'F', 'S', 'h', 'X', '4', 'a', 'Z', '3', 'm', 'A', '5', 'p', 'q', 'U', 'P', 'e', 'K', 'G', 'b', 'd', '6', '9', 'O', 'H', 'E', 'g', 'D', 'Q', 'R', '8', 'W', 'M', 'B', 'N', '0']
+
+@dataclass
+class AsciiFrameOptions:
+    """Options for processing a frame into ASCII art."""
+    char_palette: np.ndarray  # Pre-rendered character palette, shape (num_chars, char_h, char_w, 3)
+    char_w: int  # Character width in pixels
+    char_h: int  # Character height in pixels
+    invert_brightness: bool = False  # If True, invert brightness mapping
+    num_chars: int = None  # Number of characters in palette (if None, uses len(char_palette))
+    preserve_colors: bool = False  # If True, preserve original colors and skip grayscale/normalization
+    bg_color: tuple = (0, 0, 0)  # Background color tuple (RGB) - used for color preservation
+    fg_color: tuple = (255, 255, 255)  # Foreground color tuple (RGB) - used for color preservation
+    swap_dims: bool = False  # If True, swap h and w (for rotated videos)
 
 def pre_render_chars(font, char_width, char_height, bg_color, fg_color, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False):
     """
@@ -170,34 +184,26 @@ def measure_font_metrics(font):
     # Return integer dimensions
     return int(round(char_w + padding_w)), int(round(char_h + padding_h))
 
-def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, num_chars=None, preserve_colors=False, bg_color=(0, 0, 0), fg_color=(255, 255, 255), swap_dims=False):
+def process_frame(frame, options):
     """
     Process a single frame (numpy array) into ASCII art.
     
     Args:
         frame: numpy array of shape (h, w, 3) - RGB image
-        char_palette: pre-rendered character palette, shape (num_chars, char_h, char_w, 3)
-        char_w: character width in pixels
-        char_h: character height in pixels
-        invert_brightness: if True, invert brightness mapping
-        num_chars: number of characters in palette (if None, uses len(char_palette))
-        preserve_colors: if True, preserve original colors and skip grayscale/normalization
-        bg_color: background color tuple (RGB) - used for color preservation
-        fg_color: foreground color tuple (RGB) - used for color preservation
-        swap_dims: if True, swap h and w (for rotated videos)
+        options: AsciiFrameOptions object containing processing parameters
     
     Returns:
         numpy array of shape (rows * char_h, cols * char_w, 3) - ASCII art image
     """
     h, w = frame.shape[:2]
-    if swap_dims:
+    if options.swap_dims:
         h, w = w, h
     
     # Calculate grid dimensions
-    cols = w // char_w
-    rows = h // char_h
+    cols = w // options.char_w
+    rows = h // options.char_h
     
-    if preserve_colors:
+    if options.preserve_colors:
         # Preserve colors mode: skip grayscale and normalization
         # Resize RGB frame to grid size
         img_small_rgb = cv2.resize(frame, (cols, rows), interpolation=cv2.INTER_AREA)
@@ -208,12 +214,11 @@ def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, 
                          0.587 * img_small_rgb[:, :, 1] + 
                          0.114 * img_small_rgb[:, :, 2])
         
-        if num_chars is None:
-            num_chars = len(char_palette)
+        num_chars = options.num_chars if options.num_chars is not None else len(options.char_palette)
         
         # Map brightness directly to indices without normalization
         # Use full 0-255 range mapped to 0-(num_chars-1)
-        if invert_brightness:
+        if options.invert_brightness:
             indices = ((255.0 - img_brightness) / 255.0 * (num_chars - 1)).astype(int)
         else:
             indices = (img_brightness / 255.0 * (num_chars - 1)).astype(int)
@@ -221,11 +226,11 @@ def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, 
         indices = np.clip(indices, 0, num_chars - 1)
         
         # Get selected characters
-        tiled_chars = char_palette[indices]  # (rows, cols, char_h, char_w, 3)
+        tiled_chars = options.char_palette[indices]  # (rows, cols, char_h, char_w, 3)
         
         # Colorize characters based on original pixel colors
-        bg_color_arr = np.array(bg_color, dtype=np.float32)
-        fg_color_arr = np.array(fg_color, dtype=np.float32)
+        bg_color_arr = np.array(options.bg_color, dtype=np.float32)
+        fg_color_arr = np.array(options.fg_color, dtype=np.float32)
         
         # Expand sampled colors to match character dimensions
         cell_colors = img_small_rgb.astype(np.float32)  # (rows, cols, 3)
@@ -268,8 +273,7 @@ def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, 
         img_small = cv2.resize(img_gray, (cols, rows), interpolation=cv2.INTER_NEAREST)
 
         # Map pixels to Indices
-        if num_chars is None:
-            num_chars = len(char_palette)
+        num_chars = options.num_chars if options.num_chars is not None else len(options.char_palette)
         
         # Normalize to 0-1 range using min/max to ensure full range is used
         img_min = img_small.min()
@@ -279,7 +283,7 @@ def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, 
         else:
             img_normalized = img_small / 255.0
         
-        if invert_brightness:
+        if options.invert_brightness:
             indices = ((1.0 - img_normalized) * (num_chars - 1)).astype(int)
         else:
             indices = (img_normalized * (num_chars - 1)).astype(int)
@@ -287,13 +291,13 @@ def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, 
         indices = np.clip(indices, 0, num_chars - 1)
 
         # The Magic Trick (Advanced Numpy Indexing)
-        tiled_chars = char_palette[indices]
+        tiled_chars = options.char_palette[indices]
 
     # Stitching (Reshaping)
     # Swap axes to: (rows, char_h, cols, char_w, 3)
     tiled_chars = tiled_chars.swapaxes(1, 2)
     
     # Collapse the grid
-    final_frame = tiled_chars.reshape(rows * char_h, cols * char_w, 3)
+    final_frame = tiled_chars.reshape(rows * options.char_h, cols * options.char_w, 3)
     
     return final_frame
