@@ -28,21 +28,24 @@ def pre_render_chars(font, char_width, char_height, bg_color, fg_color, use_bloc
     else:
         chars = ASCII_CHARS
     
-    # Measure font metrics using a reference character to establish baseline
+    # Measure font metrics to establish baseline alignment
+    # Use a reference character to set baseline, then ensure all characters fit
     dummy_img = Image.new("RGB", (char_width * 2, char_height * 2))
     dummy_draw = ImageDraw.Draw(dummy_img)
-    if use_alphabet:
-        ref_char = "A"
-    elif use_blocks:
-        ref_char = "█"
-    else:
-        ref_char = "@"
-    ref_bbox = dummy_draw.textbbox((0, 0), ref_char, font=font)
     
-    # Use consistent baseline offset for all characters
-    # This ensures all characters align properly
-    baseline_offset_x = -ref_bbox[0]
-    baseline_offset_y = -ref_bbox[1]
+    # Find the minimum left and top across all characters to establish baseline
+    # Use the same measurement approach as measure_font_metrics for consistency
+    min_left = float('inf')
+    min_top = float('inf')
+    for char in chars:
+        bbox = dummy_draw.textbbox((0, 0), char, font=font)
+        min_left = min(min_left, bbox[0])
+        min_top = min(min_top, bbox[1])
+    
+    # Baseline offset positions characters so the leftmost/topmost aligns at (0,0)
+    # Use same calculation as in measure_font_metrics, then round to integer for rendering
+    baseline_offset_x = int(round(-min_left))
+    baseline_offset_y = int(round(-min_top))
     
     char_images = []
     
@@ -51,7 +54,9 @@ def pre_render_chars(font, char_width, char_height, bg_color, fg_color, use_bloc
         img = Image.new("RGB", (char_width, char_height), bg_color)
         draw = ImageDraw.Draw(img)
         
-        # Draw all characters at the same baseline offset for consistent alignment
+        # Draw character at baseline offset position with integer coordinates
+        # PIL's text rendering handles antialiasing automatically, which is fine for most cases
+        # Using integer positions helps avoid sub-pixel positioning issues
         draw.text((baseline_offset_x, baseline_offset_y), char, font=font, fill=fg_color)
         
         # Convert to numpy array and append
@@ -90,13 +95,67 @@ def parse_colors(bg_color_str, fg_color_str):
 def measure_font_metrics(font):
     """
     Measure character width and height for a given font.
+    Measures all characters from all character sets to find maximum dimensions.
+    Measures characters as they will be rendered (with baseline alignment).
     Returns (char_width, char_height) tuple.
     """
-    dummy_draw = ImageDraw.Draw(Image.new("RGB", (10, 10)))
-    bbox = dummy_draw.textbbox((0, 0), "@", font=font)
-    char_w = bbox[2] - bbox[0]
-    char_h = bbox[3] - bbox[1]
-    return char_w, char_h
+    # Use a larger temporary image to measure characters
+    temp_size = 1000
+    dummy_img = Image.new("RGB", (temp_size, temp_size))
+    dummy_draw = ImageDraw.Draw(dummy_img)
+    
+    # Collect all characters from all sets
+    all_chars = set(ASCII_CHARS + ASCII_BLOCKS + ASCII_ALPHABET)
+    
+    # First pass: find baseline offsets (minimum left and top)
+    min_left = float('inf')
+    min_top = float('inf')
+    for char in all_chars:
+        bbox = dummy_draw.textbbox((0, 0), char, font=font)
+        min_left = min(min_left, bbox[0])
+        min_top = min(min_top, bbox[1])
+    
+    baseline_offset_x = -min_left
+    baseline_offset_y = -min_top
+    
+    # Second pass: measure each character when drawn at baseline offset position
+    # This gives us the actual extents as they will be rendered
+    max_right = 0
+    max_bottom = 0
+    min_rendered_left = float('inf')
+    min_rendered_top = float('inf')
+    
+    for char in all_chars:
+        # Measure character when drawn at baseline offset (as it will be rendered)
+        bbox = dummy_draw.textbbox((baseline_offset_x, baseline_offset_y), char, font=font)
+        min_rendered_left = min(min_rendered_left, bbox[0])
+        min_rendered_top = min(min_rendered_top, bbox[1])
+        max_right = max(max_right, bbox[2])
+        max_bottom = max(max_bottom, bbox[3])
+    
+    # Calculate dimensions needed to fit all characters in their rendered positions
+    char_w = max_right - min_rendered_left
+    char_h = max_bottom - min_rendered_top
+    
+    # Add adaptive padding to prevent clipping
+    # Use more generous padding to ensure no clipping occurs
+    # For small fonts, use fixed pixel padding; for larger fonts, use percentage
+    if char_w < 10:
+        padding_w = max(2, int(round(char_w * 0.15)))  # At least 2px or 15% for very small fonts
+    elif char_w < 20:
+        padding_w = max(2, int(round(char_w * 0.18)))  # At least 2px or 18% for small fonts
+    else:
+        padding_w = max(4, int(round(char_w * 0.25)))  # At least 4px or 25% for larger fonts
+    
+    if char_h < 10:
+        padding_h = max(2, int(round(char_h * 0.15)))  # At least 2px or 15% for very small fonts
+    elif char_h < 20:
+        padding_h = max(2, int(round(char_h * 0.18)))  # At least 2px or 18% for small fonts
+    else:
+        padding_h = max(4, int(round(char_h * 0.25)))  # At least 4px or 25% for larger fonts
+    
+    # Return integer dimensions
+    return int(round(char_w + padding_w)), int(round(char_h + padding_h))
 
 def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, num_chars=None, preserve_colors=False, bg_color=(0, 0, 0), fg_color=(255, 255, 255)):
     """
@@ -156,14 +215,36 @@ def process_frame(frame, char_palette, char_w, char_h, invert_brightness=False, 
         cell_colors = img_small_rgb.astype(np.float32)  # (rows, cols, 3)
         cell_colors_expanded = cell_colors[:, :, np.newaxis, np.newaxis, :]  # (rows, cols, 1, 1, 3)
         
-        # Create mask: pixels that are closer to fg_color than bg_color (character pixels)
+        # Create mask using luminance-based approach for better antialiasing handling
+        # Convert character pixels to grayscale to determine character intensity
         tiled_chars_float = tiled_chars.astype(np.float32)
-        char_diff_fg = np.sum((tiled_chars_float - fg_color_arr) ** 2, axis=-1, keepdims=True)
-        char_diff_bg = np.sum((tiled_chars_float - bg_color_arr) ** 2, axis=-1, keepdims=True)
-        fg_mask = (char_diff_fg < char_diff_bg).astype(np.float32)  # (rows, cols, char_h, char_w, 1)
         
-        # Apply color: character pixels get the sampled color, background is black
-        tiled_chars = (cell_colors_expanded * fg_mask).astype(np.uint8)
+        # Calculate luminance of each pixel in the character
+        char_luminance = (0.299 * tiled_chars_float[:, :, :, :, 0] + 
+                         0.587 * tiled_chars_float[:, :, :, :, 1] + 
+                         0.114 * tiled_chars_float[:, :, :, :, 2])
+        
+        # Calculate luminance of bg and fg colors
+        bg_lum = 0.299 * bg_color_arr[0] + 0.587 * bg_color_arr[1] + 0.114 * bg_color_arr[2]
+        fg_lum = 0.299 * fg_color_arr[0] + 0.587 * fg_color_arr[1] + 0.114 * fg_color_arr[2]
+        
+        # Create mask based on how close pixel luminance is to fg vs bg
+        # Normalize to 0-1 range where 1 = fully foreground, 0 = fully background
+        if abs(fg_lum - bg_lum) > 1e-6:
+            fg_mask = np.clip((char_luminance - bg_lum) / (fg_lum - bg_lum), 0.0, 1.0)
+        else:
+            # If fg and bg have same luminance, use color distance instead
+            char_diff_fg = np.sum((tiled_chars_float - fg_color_arr) ** 2, axis=-1)
+            char_diff_bg = np.sum((tiled_chars_float - bg_color_arr) ** 2, axis=-1)
+            total_diff = char_diff_fg + char_diff_bg
+            fg_mask = np.where(total_diff > 1e-6, 1.0 - (char_diff_fg / total_diff), 0.5)
+        
+        fg_mask = fg_mask[:, :, :, :, np.newaxis]  # Add channel dimension
+        
+        # Apply color: blend sampled color with character based on mask
+        # This preserves antialiasing and character shape
+        tiled_chars = (cell_colors_expanded * fg_mask + 
+                      bg_color_arr * (1.0 - fg_mask)).astype(np.uint8)
         
     else:
         # Original mode: Grayscale & Normalize
