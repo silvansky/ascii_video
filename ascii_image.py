@@ -6,7 +6,7 @@ import cv2
 from PIL import Image
 from ascii_common import (
     ASCII_CHARS, ASCII_BLOCKS, ASCII_ALPHABET, ASCII_DIGITS, ASCII_ALPHANUMERIC, pre_render_chars, load_font, parse_colors,
-    measure_font_metrics, process_frame, AsciiFrameOptions
+    measure_font_metrics, process_frame, AsciiFrameOptions, add_common_arguments
 )
 
 def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False, preserve_colors=False):
@@ -80,19 +80,7 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
 
 def main():
     parser = argparse.ArgumentParser(description="Fast ASCII Image Generator")
-    parser.add_argument("input", help="Path to input image file")
-    parser.add_argument("-o", "--output", help="Path to output image file", default=None)
-    parser.add_argument("-f", "--fontsize", type=int, help="Font size", default=10)
-    parser.add_argument("-s", "--scale", type=float, help="Scale (0.5 is faster)", default=1.0)
-    parser.add_argument("--bg-color", help="Background color (e.g., 'black', '#000000')", default="black")
-    parser.add_argument("--fg-color", help="Foreground color (e.g., 'white', '#FFFFFF')", default="white")
-    parser.add_argument("--invert-brightness", action="store_true", help="Invert brightness mapping (bright areas become dark characters)")
-    parser.add_argument("--blocks", action="store_true", help="Use ASCII block characters (█ ▓ ▒ ░ space) instead of regular characters")
-    parser.add_argument("--alphabet", action="store_true", help="Use alphabet letters only (a-z, A-Z) instead of regular characters")
-    parser.add_argument("--digits", action="store_true", help="Use digits only (0-9) instead of regular characters")
-    parser.add_argument("--alphanumeric", action="store_true", help="Use alphanumeric characters (a-z, A-Z, 0-9) instead of regular characters")
-    parser.add_argument("--preserve-colors", action="store_true", help="Preserve original colors (ignores fg-color, disables grayscale and normalization)")
-    
+    add_common_arguments(parser, input_help="Path to input image file", output_help="Path to output image file")
     args = parser.parse_args()
     
     # Set default output filename if not provided

@@ -2,6 +2,7 @@
 Common utilities for ASCII image and video processing.
 """
 import sys
+import argparse
 from dataclasses import dataclass
 import numpy as np
 import cv2
@@ -118,6 +119,28 @@ def parse_colors(bg_color_str, fg_color_str):
     except ValueError as e:
         print(f"Error: Invalid color format. {e}")
         sys.exit(1)
+
+def add_common_arguments(parser, input_help="Path to input file", output_help="Path to output file"):
+    """
+    Add common ASCII processing arguments to an ArgumentParser.
+    
+    Args:
+        parser: argparse.ArgumentParser instance
+        input_help: Help text for input argument
+        output_help: Help text for output argument
+    """
+    parser.add_argument("input", help=input_help)
+    parser.add_argument("-o", "--output", help=output_help, default=None)
+    parser.add_argument("-f", "--fontsize", type=int, help="Font size", default=10)
+    parser.add_argument("-s", "--scale", type=float, help="Scale (0.5 is faster)", default=1.0)
+    parser.add_argument("--bg-color", help="Background color (e.g., 'black', '#000000')", default="black")
+    parser.add_argument("--fg-color", help="Foreground color (e.g., 'white', '#FFFFFF')", default="white")
+    parser.add_argument("--invert-brightness", action="store_true", help="Invert brightness mapping (bright areas become dark characters)")
+    parser.add_argument("--blocks", action="store_true", help="Use ASCII block characters (█ ▓ ▒ ░ space) instead of regular characters")
+    parser.add_argument("--alphabet", action="store_true", help="Use alphabet letters only (a-z, A-Z) instead of regular characters")
+    parser.add_argument("--digits", action="store_true", help="Use digits only (0-9) instead of regular characters")
+    parser.add_argument("--alphanumeric", action="store_true", help="Use alphanumeric characters (a-z, A-Z, 0-9) instead of regular characters")
+    parser.add_argument("--preserve-colors", action="store_true", help="Preserve original colors (ignores fg-color, disables grayscale and normalization)")
 
 def measure_font_metrics(font):
     """
