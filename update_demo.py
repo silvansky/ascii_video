@@ -10,12 +10,12 @@ from pathlib import Path
 
 # Source files
 SOURCES = {
-    "images": ["cat_src.png", "cat2_src.png"],
+    "images": ["demo/cat_src.png", "demo/cat2_src.png"],
     "video": "cat_src.mp4"
 }
 
-FONT_SIZE = 5
-FONT_SIZE_VIDEO = 7
+FONT_SIZE = 10
+FONT_SIZE_VIDEO = 10
 
 def run_command(cmd, description):
     """Run a command and handle errors."""
