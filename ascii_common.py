@@ -12,18 +12,31 @@ ASCII_CHARS = [" ", ".", ",", "-", "~", "+", "=", "@", "#", "%", "$"]
 # ASCII block characters from darkest to lightest
 ASCII_BLOCKS = [" ", "░", "▒", "▓", "█"]
 
-def pre_render_chars(font, char_width, char_height, bg_color, fg_color, use_blocks=False):
+# Alphabet letters from darkest to lightest (measured brightness order)
+ASCII_ALPHABET = ['r', 'j', 'v', 'x', 'c', 'z', 'l', 'Y', 'L', 'n', 'u', 's', 'y', 'J', 'w', 'i', 't', 'T', 'f', 'C', 'o', 'V', 'I', 'k', 'F', 'S', 'h', 'X', 'a', 'Z', 'm', 'A', 'p', 'q', 'U', 'P', 'e', 'K', 'G', 'b', 'd', 'O', 'H', 'E', 'g', 'D', 'Q', 'R', 'W', 'M', 'B', 'N']
+
+def pre_render_chars(font, char_width, char_height, bg_color, fg_color, use_blocks=False, use_alphabet=False):
     """
     Renders every ASCII char into a numpy array (stamp) once.
     Returns a numpy array of shape (num_chars, h, w, 3).
     """
     # Select character set
-    chars = ASCII_BLOCKS if use_blocks else ASCII_CHARS
+    if use_alphabet:
+        chars = ASCII_ALPHABET
+    elif use_blocks:
+        chars = ASCII_BLOCKS
+    else:
+        chars = ASCII_CHARS
     
     # Measure font metrics using a reference character to establish baseline
     dummy_img = Image.new("RGB", (char_width * 2, char_height * 2))
     dummy_draw = ImageDraw.Draw(dummy_img)
-    ref_char = "█" if use_blocks else "@"
+    if use_alphabet:
+        ref_char = "A"
+    elif use_blocks:
+        ref_char = "█"
+    else:
+        ref_char = "@"
     ref_bbox = dummy_draw.textbbox((0, 0), ref_char, font=font)
     
     # Use consistent baseline offset for all characters

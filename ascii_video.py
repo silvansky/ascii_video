@@ -14,7 +14,7 @@ except ImportError:
     from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
 from ascii_common import (
-    ASCII_CHARS, ASCII_BLOCKS, pre_render_chars, load_font, parse_colors,
+    ASCII_CHARS, ASCII_BLOCKS, ASCII_ALPHABET, pre_render_chars, load_font, parse_colors,
     measure_font_metrics, process_frame
 )
 
@@ -54,7 +54,7 @@ def get_video_rotation(video_path):
     return 0
 
 
-def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_color="black", fg_color="white", invert_brightness=False, use_blocks=False, preserve_colors=False):
+def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_color="black", fg_color="white", invert_brightness=False, use_blocks=False, use_alphabet=False, preserve_colors=False):
     """
     Fast processing using Numpy tiling.
     """
@@ -85,8 +85,13 @@ def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_
     print(f"Char Size: {char_w}x{char_h}")
     
     # Pre-render fonts to a lookup table (The Palette)
-    char_palette = pre_render_chars(font, char_w, char_h, bg_color, fg_color, use_blocks)
-    num_chars = len(ASCII_BLOCKS) if use_blocks else len(ASCII_CHARS)
+    char_palette = pre_render_chars(font, char_w, char_h, bg_color, fg_color, use_blocks, use_alphabet)
+    if use_alphabet:
+        num_chars = len(ASCII_ALPHABET)
+    elif use_blocks:
+        num_chars = len(ASCII_BLOCKS)
+    else:
+        num_chars = len(ASCII_CHARS)
 
     processed_frames = []
     
@@ -116,6 +121,7 @@ def main():
     parser.add_argument("--fg-color", help="Foreground color (e.g., 'white', '#FFFFFF')", default="white")
     parser.add_argument("--invert-brightness", action="store_true", help="Invert brightness mapping (bright areas become dark characters)")
     parser.add_argument("--blocks", action="store_true", help="Use ASCII block characters (█ ▓ ▒ ░ space) instead of regular characters")
+    parser.add_argument("--alphabet", action="store_true", help="Use alphabet letters only (a-z, A-Z) instead of regular characters")
     parser.add_argument("--preserve-colors", action="store_true", help="Preserve original colors (ignores fg-color, disables grayscale and normalization)")
     
     args = parser.parse_args()
@@ -132,7 +138,7 @@ def main():
     font = load_font(args.fontsize)
     try:
         clip = VideoFileClip(args.input)
-        process_video_numpy(clip, font, args.output, args.scale, video_path=args.input, bg_color=bg_color, fg_color=fg_color, invert_brightness=args.invert_brightness, use_blocks=args.blocks, preserve_colors=args.preserve_colors)
+        process_video_numpy(clip, font, args.output, args.scale, video_path=args.input, bg_color=bg_color, fg_color=fg_color, invert_brightness=args.invert_brightness, use_blocks=args.blocks, use_alphabet=args.alphabet, preserve_colors=args.preserve_colors)
     except Exception as e:
         print(f"Error: {e}")
 
