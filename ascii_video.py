@@ -71,8 +71,10 @@ def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_
     w, h = clip.size
     
     # Account for video rotation metadata (swap dimensions if rotated 90/270 degrees)
+    rotation = 0
     if video_path:
         rotation = get_video_rotation(video_path)
+        print(f"Video rotation: {rotation}°")
         if rotation in [90, 270]:
             w, h = h, w
     
@@ -112,6 +114,9 @@ def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_
     
     if clip.audio:
         final_clip = final_clip.set_audio(clip.audio)
+    
+    final_w, final_h = final_clip.size
+    print(f"Resulting video resolution: {final_w}x{final_h}")
         
     final_clip.write_videofile(output_path, codec="libx264", audio_codec="aac")
 
