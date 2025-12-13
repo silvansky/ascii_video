@@ -38,6 +38,7 @@ python ascii_video.py <input_video> [options]
 - `--invert-brightness`: Invert brightness mapping - bright areas become dark characters, dark areas become bright characters
 - `--blocks`: Use ASCII block characters (█ ▓ ▒ ░ space) instead of regular characters
 - `--preserve-colors`: Preserve original colors from the image/video - ignores fg-color, disables grayscale conversion and brightness normalization
+- `--tint`: Tint color to apply when `--preserve-colors` is set - accepts color names or hex codes (e.g., "red", "#FF6600")
 
 ### Examples
 
@@ -68,6 +69,10 @@ python ascii_video.py input.mp4 --blocks
 
 # Preserve original colors
 python ascii_video.py input.mp4 --preserve-colors
+
+# Preserve colors with a tint
+python ascii_video.py input.mp4 --preserve-colors --tint red
+python ascii_video.py input.mp4 --preserve-colors --tint "#FF6600"
 ```
 
 ### Example Output
@@ -100,6 +105,7 @@ python ascii_image.py <input_image> [options]
 - `--invert-brightness`: Invert brightness mapping - bright areas become dark characters, dark areas become bright characters
 - `--blocks`: Use ASCII block characters (█ ▓ ▒ ░ space) instead of regular characters
 - `--preserve-colors`: Preserve original colors from the image/video - ignores fg-color, disables grayscale conversion and brightness normalization
+- `--tint`: Tint color to apply when `--preserve-colors` is set - accepts color names or hex codes (e.g., "red", "#FF6600")
 
 ### Examples
 
@@ -130,6 +136,10 @@ python ascii_image.py input.jpg --blocks
 
 # Preserve original colors
 python ascii_image.py input.jpg --preserve-colors
+
+# Preserve colors with a tint
+python ascii_image.py input.jpg --preserve-colors --tint orange
+python ascii_image.py input.jpg --preserve-colors --tint "#00FF00"
 ```
 
 ### Example Output

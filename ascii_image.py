@@ -9,7 +9,7 @@ from ascii_common import (
     measure_font_metrics, process_frame, AsciiFrameOptions, add_common_arguments
 )
 
-def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False, preserve_colors=False):
+def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False, preserve_colors=False, tint_color=None):
     """
     Fast processing using Numpy tiling.
     """
@@ -67,7 +67,8 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
         preserve_colors=preserve_colors,
         bg_color=bg_color,
         fg_color=fg_color,
-        swap_dims=False
+        swap_dims=False,
+        tint_color=tint_color
     )
     
     # Process frame using common function
@@ -91,10 +92,20 @@ def main():
     # Parse colors
     bg_color, fg_color = parse_colors(args.bg_color, args.fg_color)
     
+    # Parse tint color if provided
+    tint_color = None
+    if args.tint:
+        from PIL import ImageColor
+        try:
+            tint_color = ImageColor.getcolor(args.tint, "RGB")
+        except ValueError as e:
+            print(f"Error: Invalid tint color format. {e}")
+            sys.exit(1)
+    
     # Font loading
     font = load_font(args.fontsize)
     try:
-        process_image_numpy(args.input, font, args.output, args.scale, bg_color, fg_color, args.invert_brightness, args.blocks, args.alphabet, args.digits, args.alphanumeric, args.preserve_colors)
+        process_image_numpy(args.input, font, args.output, args.scale, bg_color, fg_color, args.invert_brightness, args.blocks, args.alphabet, args.digits, args.alphanumeric, args.preserve_colors, tint_color)
     except Exception as e:
         print(f"Error: {e}")
 

@@ -38,6 +38,7 @@ class AsciiFrameOptions:
     bg_color: tuple = (0, 0, 0)  # Background color tuple (RGB) - used for color preservation
     fg_color: tuple = (255, 255, 255)  # Foreground color tuple (RGB) - used for color preservation
     swap_dims: bool = False  # If True, swap h and w (for rotated videos)
+    tint_color: tuple = None  # Tint color tuple (RGB) - applied when preserve_colors is True
 
 def pre_render_chars(font, char_width, char_height, bg_color, fg_color, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False):
     """
@@ -141,6 +142,7 @@ def add_common_arguments(parser, input_help="Path to input file", output_help="P
     parser.add_argument("--digits", action="store_true", help="Use digits only (0-9) instead of regular characters")
     parser.add_argument("--alphanumeric", action="store_true", help="Use alphanumeric characters (a-z, A-Z, 0-9) instead of regular characters")
     parser.add_argument("--preserve-colors", action="store_true", help="Preserve original colors (ignores fg-color, disables grayscale and normalization)")
+    parser.add_argument("--tint", help="Tint color to apply when --preserve-colors is set (e.g., 'red', '#FF0000')", default=None)
 
 def measure_font_metrics(font):
     """
@@ -284,6 +286,11 @@ def process_frame(frame, options):
             fg_mask = np.where(total_diff > 1e-6, 1.0 - (char_diff_fg / total_diff), 0.5)
         
         fg_mask = fg_mask[:, :, :, :, np.newaxis]  # Add channel dimension
+        
+        # Apply tint if specified
+        if options.tint_color is not None:
+            tint_arr = np.array(options.tint_color, dtype=np.float32) / 255.0
+            cell_colors_expanded = cell_colors_expanded * tint_arr
         
         # Apply color: blend sampled color with character based on mask
         # This preserves antialiasing and character shape

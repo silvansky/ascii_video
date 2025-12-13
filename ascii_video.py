@@ -54,7 +54,7 @@ def get_video_rotation(video_path):
     return 0
 
 
-def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_color="black", fg_color="white", invert_brightness=False, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False, preserve_colors=False):
+def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_color="black", fg_color="white", invert_brightness=False, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False, preserve_colors=False, tint_color=None):
     """
     Fast processing using Numpy tiling.
     """
@@ -114,7 +114,8 @@ def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_
         preserve_colors=preserve_colors,
         bg_color=bg_color,
         fg_color=fg_color,
-        swap_dims=swap_dims
+        swap_dims=swap_dims,
+        tint_color=tint_color
     )
     
     print("Rendering frames...")
@@ -149,11 +150,21 @@ def main():
     # Parse colors
     bg_color, fg_color = parse_colors(args.bg_color, args.fg_color)
     
+    # Parse tint color if provided
+    tint_color = None
+    if args.tint:
+        from PIL import ImageColor
+        try:
+            tint_color = ImageColor.getcolor(args.tint, "RGB")
+        except ValueError as e:
+            print(f"Error: Invalid tint color format. {e}")
+            sys.exit(1)
+    
     # Font loading
     font = load_font(args.fontsize)
     try:
         clip = VideoFileClip(args.input)
-        process_video_numpy(clip, font, args.output, args.scale, video_path=args.input, bg_color=bg_color, fg_color=fg_color, invert_brightness=args.invert_brightness, use_blocks=args.blocks, use_alphabet=args.alphabet, use_digits=args.digits, use_alphanumeric=args.alphanumeric, preserve_colors=args.preserve_colors)
+        process_video_numpy(clip, font, args.output, args.scale, video_path=args.input, bg_color=bg_color, fg_color=fg_color, invert_brightness=args.invert_brightness, use_blocks=args.blocks, use_alphabet=args.alphabet, use_digits=args.digits, use_alphanumeric=args.alphanumeric, preserve_colors=args.preserve_colors, tint_color=tint_color)
     except Exception as e:
         print(f"Error: {e}")
 
