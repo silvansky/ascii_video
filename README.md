@@ -1,6 +1,6 @@
-# ASCII Video Converter
+# ASCII & Emoji Video Converter
 
-Convert videos to ASCII art videos.
+Convert images and videos to ASCII art or emoji art.
 
 Tested on macOS only. Font loading should be updated for other systems.
 
@@ -151,3 +151,76 @@ Example images created with `-f 5`:
 ![Cat 1 Original](demo/cat_src.png) → ![Cat 1 ASCII](demo/cat_src_ascii.png)
 
 ![Cat 2 Original](demo/cat2_src.png) → ![Cat 2 ASCII](demo/cat2_src_ascii.png)
+
+## Emoji Image Converter
+
+Convert images to emoji art by matching colors.
+
+### Usage
+
+```bash
+python emoji_image.py <input_image> [options]
+```
+
+### Options
+
+- `-o, --output`: Path to output image file (default: input filename with `_emoji` suffix)
+- `-e, --emoji-size`: Emoji size in pixels (default: 32)
+- `-s, --scale`: Input scale factor (default: 1.0)
+- `--bg-color`: Background color (default: "black")
+- `--emoji-set`: Emoji set to use: `all`, `smiles`, `food`, `animals` (default: all)
+
+### Examples
+
+```bash
+# Basic conversion
+python emoji_image.py input.jpg
+
+# Larger emojis
+python emoji_image.py input.jpg -e 64
+
+# Use only food emojis
+python emoji_image.py input.jpg --emoji-set food
+
+# Use smiley faces
+python emoji_image.py input.jpg --emoji-set smiles
+
+# Scale down input for faster processing
+python emoji_image.py input.jpg -s 0.5 -e 32
+```
+
+## Emoji Video Converter
+
+Convert videos to emoji art videos.
+
+### Usage
+
+```bash
+python emoji_video.py <input_video> [options]
+```
+
+### Options
+
+- `-o, --output`: Path to output video file (default: input filename with `_emoji` suffix)
+- `-e, --emoji-size`: Emoji size in pixels (default: 32)
+- `-s, --scale`: Input scale factor (default: 1.0)
+- `--bg-color`: Background color (default: "black")
+- `--emoji-set`: Emoji set to use: `all`, `smiles`, `food`, `animals` (default: all)
+
+### Examples
+
+```bash
+# Basic conversion
+python emoji_video.py input.mp4
+
+# Use animal emojis
+python emoji_video.py input.mp4 --emoji-set animals
+
+# Smaller emojis for more detail
+python emoji_video.py input.mp4 -e 20
+
+# Scale down for faster processing
+python emoji_video.py input.mp4 -s 0.5
+```
+
+**Note:** Emoji rendering uses Apple Color Emoji font (macOS). Valid font sizes are 20, 32, 40, 48, 52, 64, 96, 160. Other sizes will use the nearest valid size and scale.

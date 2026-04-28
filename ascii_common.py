@@ -40,22 +40,24 @@ class AsciiFrameOptions:
     swap_dims: bool = False  # If True, swap h and w (for rotated videos)
     tint_color: tuple = None  # Tint color tuple (RGB) - applied when preserve_colors is True
 
+def select_chars(use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False):
+    """Return the character set list based on flags."""
+    if use_alphanumeric:
+        return ASCII_ALPHANUMERIC
+    if use_digits:
+        return ASCII_DIGITS
+    if use_alphabet:
+        return ASCII_ALPHABET
+    if use_blocks:
+        return ASCII_BLOCKS
+    return ASCII_CHARS
+
 def pre_render_chars(font, char_width, char_height, bg_color, fg_color, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False):
     """
     Renders every ASCII char into a numpy array (stamp) once.
     Returns a numpy array of shape (num_chars, h, w, 3).
     """
-    # Select character set
-    if use_alphanumeric:
-        chars = ASCII_ALPHANUMERIC
-    elif use_digits:
-        chars = ASCII_DIGITS
-    elif use_alphabet:
-        chars = ASCII_ALPHABET
-    elif use_blocks:
-        chars = ASCII_BLOCKS
-    else:
-        chars = ASCII_CHARS
+    chars = select_chars(use_blocks, use_alphabet, use_digits, use_alphanumeric)
     
     # Measure font metrics to establish baseline alignment
     # Use a reference character to set baseline, then ensure all characters fit
@@ -208,6 +210,35 @@ def measure_font_metrics(font):
     
     # Return integer dimensions
     return int(round(char_w + padding_w)), int(round(char_h + padding_h))
+
+def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_dims=False):
+    """
+    Convert a frame (RGB numpy array) into a multi-line ASCII string.
+    Uses grayscale + min/max normalization for character selection.
+    """
+    h, w = frame.shape[:2]
+    if swap_dims:
+        h, w = w, h
+    cols = w // char_w
+    rows = h // char_h
+
+    img_gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+    img_small = cv2.resize(img_gray, (cols, rows), interpolation=cv2.INTER_NEAREST)
+
+    num_chars = len(chars)
+    img_min, img_max = img_small.min(), img_small.max()
+    if img_max > img_min:
+        img_normalized = (img_small - img_min) / (img_max - img_min)
+    else:
+        img_normalized = img_small / 255.0
+
+    if invert_brightness:
+        indices = ((1.0 - img_normalized) * (num_chars - 1)).astype(int)
+    else:
+        indices = (img_normalized * (num_chars - 1)).astype(int)
+    indices = np.clip(indices, 0, num_chars - 1)
+
+    return "\n".join("".join(chars[idx] for idx in row) for row in indices)
 
 def process_frame(frame, options):
     """

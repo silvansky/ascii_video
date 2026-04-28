@@ -5,7 +5,7 @@ import numpy as np
 import cv2
 from PIL import Image
 from ascii_common import (
-    ASCII_CHARS, ASCII_BLOCKS, ASCII_ALPHABET, ASCII_DIGITS, ASCII_ALPHANUMERIC, pre_render_chars, load_font, parse_colors,
+    select_chars, pre_render_chars, load_font, parse_colors, frame_to_text,
     measure_font_metrics, process_frame, AsciiFrameOptions, add_common_arguments
 )
 
@@ -15,25 +15,25 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
     """
     # Load image
     img = Image.open(image_path)
-    
+
     # Convert to RGB if needed
     if img.mode != 'RGB':
         img = img.convert('RGB')
-    
+
     # Convert to numpy array
     frame = np.array(img)
-    
+
     # Apply scale if needed
     if scale != 1.0:
         h, w = frame.shape[:2]
         new_h, new_w = int(h * scale), int(w * scale)
         frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
-    
+
     # Measure font metrics
     char_w, char_h = measure_font_metrics(font)
 
     h, w = frame.shape[:2]
-    
+
     # Calculate grid dimensions
     cols = w // char_w
     rows = h // char_h
@@ -41,19 +41,20 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
     print(f"Resolution: {w}x{h}")
     print(f"Grid: {cols}x{rows}")
     print(f"Char Size: {char_w}x{char_h}")
-    
+
+    chars = select_chars(use_blocks, use_alphabet, use_digits, use_alphanumeric)
+
+    if output_path.lower().endswith(".txt"):
+        print("Rendering text...")
+        text = frame_to_text(frame, char_w, char_h, chars, invert_brightness=invert_brightness)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(text)
+        print(f"Saved to {output_path}")
+        return
+
     # Pre-render fonts to a lookup table (The Palette)
     char_palette = pre_render_chars(font, char_w, char_h, bg_color, fg_color, use_blocks, use_alphabet, use_digits, use_alphanumeric)
-    if use_alphanumeric:
-        num_chars = len(ASCII_ALPHANUMERIC)
-    elif use_digits:
-        num_chars = len(ASCII_DIGITS)
-    elif use_alphabet:
-        num_chars = len(ASCII_ALPHABET)
-    elif use_blocks:
-        num_chars = len(ASCII_BLOCKS)
-    else:
-        num_chars = len(ASCII_CHARS)
+    num_chars = len(chars)
 
     print("Rendering image...")
     
