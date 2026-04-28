@@ -9,7 +9,7 @@ from ascii_common import (
     measure_font_metrics, process_frame, AsciiFrameOptions, add_common_arguments
 )
 
-def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False, preserve_colors=False, tint_color=None):
+def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False, preserve_colors=False, tint_color=None, adjust_aspect_ratio=False):
     """
     Fast processing using Numpy tiling.
     """
@@ -45,6 +45,10 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
     chars = select_chars(use_blocks, use_alphabet, use_digits, use_alphanumeric)
 
     if output_path.lower().endswith(".txt"):
+        if adjust_aspect_ratio:
+            new_h = max(1, int(round(h * char_h / (2 * char_w))))
+            frame = cv2.resize(frame, (w, new_h), interpolation=cv2.INTER_AREA)
+            print(f"Adjusted AR: {w}x{h} -> {w}x{new_h}")
         print("Rendering text...")
         text = frame_to_text(frame, char_w, char_h, chars, invert_brightness=invert_brightness)
         with open(output_path, "w", encoding="utf-8") as f:
@@ -106,7 +110,7 @@ def main():
     # Font loading
     font = load_font(args.fontsize)
     try:
-        process_image_numpy(args.input, font, args.output, args.scale, bg_color, fg_color, args.invert_brightness, args.blocks, args.alphabet, args.digits, args.alphanumeric, args.preserve_colors, tint_color)
+        process_image_numpy(args.input, font, args.output, args.scale, bg_color, fg_color, args.invert_brightness, args.blocks, args.alphabet, args.digits, args.alphanumeric, args.preserve_colors, tint_color, args.adjust_aspect_ratio)
     except Exception as e:
         print(f"Error: {e}")
 

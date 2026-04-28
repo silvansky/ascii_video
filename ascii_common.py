@@ -145,6 +145,7 @@ def add_common_arguments(parser, input_help="Path to input file", output_help="P
     parser.add_argument("--alphanumeric", action="store_true", help="Use alphanumeric characters (a-z, A-Z, 0-9) instead of regular characters")
     parser.add_argument("--preserve-colors", action="store_true", help="Preserve original colors (ignores fg-color, disables grayscale and normalization)")
     parser.add_argument("--tint", help="Tint color to apply when --preserve-colors is set (e.g., 'red', '#FF0000')", default=None)
+    parser.add_argument("--adjust-aspect-ratio", action="store_true", help="For .txt output, adjust source image AR to compensate for terminal cell aspect (~1:2) so output is not stretched")
 
 def measure_font_metrics(font):
     """
