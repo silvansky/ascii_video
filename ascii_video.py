@@ -14,7 +14,7 @@ except ImportError:
     from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
 from ascii_common import (
-    ASCII_CHARS, ASCII_BLOCKS, ASCII_ALPHABET, ASCII_DIGITS, ASCII_ALPHANUMERIC, pre_render_chars, load_font, parse_colors,
+    select_chars, pre_render_chars, load_font, parse_colors,
     measure_font_metrics, process_frame, AsciiFrameOptions, add_common_arguments
 )
 
@@ -54,7 +54,7 @@ def get_video_rotation(video_path):
     return 0
 
 
-def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_color="black", fg_color="white", invert_brightness=False, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False, preserve_colors=False, tint_color=None):
+def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_color="black", fg_color="white", invert_brightness=False, mode="chars", preserve_colors=False, tint_color=None):
     """
     Fast processing using Numpy tiling.
     """
@@ -90,17 +90,8 @@ def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_
     print(f"Char Size: {char_w}x{char_h}")
     
     # Pre-render fonts to a lookup table (The Palette)
-    char_palette = pre_render_chars(font, char_w, char_h, bg_color, fg_color, use_blocks, use_alphabet, use_digits, use_alphanumeric)
-    if use_alphanumeric:
-        num_chars = len(ASCII_ALPHANUMERIC)
-    elif use_digits:
-        num_chars = len(ASCII_DIGITS)
-    elif use_alphabet:
-        num_chars = len(ASCII_ALPHABET)
-    elif use_blocks:
-        num_chars = len(ASCII_BLOCKS)
-    else:
-        num_chars = len(ASCII_CHARS)
+    char_palette = pre_render_chars(font, char_w, char_h, bg_color, fg_color, mode)
+    num_chars = len(select_chars(mode))
 
     processed_frames = []
     
@@ -164,7 +155,7 @@ def main():
     font = load_font(args.fontsize)
     try:
         clip = VideoFileClip(args.input)
-        process_video_numpy(clip, font, args.output, args.scale, video_path=args.input, bg_color=bg_color, fg_color=fg_color, invert_brightness=args.invert_brightness, use_blocks=args.blocks, use_alphabet=args.alphabet, use_digits=args.digits, use_alphanumeric=args.alphanumeric, preserve_colors=args.preserve_colors, tint_color=tint_color)
+        process_video_numpy(clip, font, args.output, args.scale, video_path=args.input, bg_color=bg_color, fg_color=fg_color, invert_brightness=args.invert_brightness, mode=args.mode, preserve_colors=args.preserve_colors, tint_color=tint_color)
     except Exception as e:
         print(f"Error: {e}")
 

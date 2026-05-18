@@ -9,7 +9,7 @@ from ascii_common import (
     measure_font_metrics, process_frame, AsciiFrameOptions, add_common_arguments
 )
 
-def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False, preserve_colors=False, tint_color=None, adjust_aspect_ratio=False):
+def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, mode="chars", preserve_colors=False, tint_color=None, adjust_aspect_ratio=False):
     """
     Fast processing using Numpy tiling.
     """
@@ -42,7 +42,7 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
     print(f"Grid: {cols}x{rows}")
     print(f"Char Size: {char_w}x{char_h}")
 
-    chars = select_chars(use_blocks, use_alphabet, use_digits, use_alphanumeric)
+    chars = select_chars(mode)
 
     if output_path.lower().endswith(".txt"):
         if adjust_aspect_ratio:
@@ -57,7 +57,7 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
         return
 
     # Pre-render fonts to a lookup table (The Palette)
-    char_palette = pre_render_chars(font, char_w, char_h, bg_color, fg_color, use_blocks, use_alphabet, use_digits, use_alphanumeric)
+    char_palette = pre_render_chars(font, char_w, char_h, bg_color, fg_color, mode)
     num_chars = len(chars)
 
     print("Rendering image...")
@@ -110,7 +110,7 @@ def main():
     # Font loading
     font = load_font(args.fontsize)
     try:
-        process_image_numpy(args.input, font, args.output, args.scale, bg_color, fg_color, args.invert_brightness, args.blocks, args.alphabet, args.digits, args.alphanumeric, args.preserve_colors, tint_color, args.adjust_aspect_ratio)
+        process_image_numpy(args.input, font, args.output, args.scale, bg_color, fg_color, args.invert_brightness, args.mode, args.preserve_colors, tint_color, args.adjust_aspect_ratio)
     except Exception as e:
         print(f"Error: {e}")
 

@@ -40,24 +40,24 @@ class AsciiFrameOptions:
     swap_dims: bool = False  # If True, swap h and w (for rotated videos)
     tint_color: tuple = None  # Tint color tuple (RGB) - applied when preserve_colors is True
 
-def select_chars(use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False):
-    """Return the character set list based on flags."""
-    if use_alphanumeric:
-        return ASCII_ALPHANUMERIC
-    if use_digits:
-        return ASCII_DIGITS
-    if use_alphabet:
-        return ASCII_ALPHABET
-    if use_blocks:
-        return ASCII_BLOCKS
-    return ASCII_CHARS
+MODE_CHARS = {
+    "chars": ASCII_CHARS,
+    "blocks": ASCII_BLOCKS,
+    "alphabet": ASCII_ALPHABET,
+    "digits": ASCII_DIGITS,
+    "alphanumeric": ASCII_ALPHANUMERIC,
+}
 
-def pre_render_chars(font, char_width, char_height, bg_color, fg_color, use_blocks=False, use_alphabet=False, use_digits=False, use_alphanumeric=False):
+def select_chars(mode="chars"):
+    """Return the character set list based on mode."""
+    return MODE_CHARS[mode]
+
+def pre_render_chars(font, char_width, char_height, bg_color, fg_color, mode="chars"):
     """
     Renders every ASCII char into a numpy array (stamp) once.
     Returns a numpy array of shape (num_chars, h, w, 3).
     """
-    chars = select_chars(use_blocks, use_alphabet, use_digits, use_alphanumeric)
+    chars = select_chars(mode)
     
     # Measure font metrics to establish baseline alignment
     # Use a reference character to set baseline, then ensure all characters fit
@@ -139,10 +139,7 @@ def add_common_arguments(parser, input_help="Path to input file", output_help="P
     parser.add_argument("--bg-color", help="Background color (e.g., 'black', '#000000')", default="black")
     parser.add_argument("--fg-color", help="Foreground color (e.g., 'white', '#FFFFFF')", default="white")
     parser.add_argument("--invert-brightness", action="store_true", help="Invert brightness mapping (bright areas become dark characters)")
-    parser.add_argument("--blocks", action="store_true", help="Use ASCII block characters (█ ▓ ▒ ░ space) instead of regular characters")
-    parser.add_argument("--alphabet", action="store_true", help="Use alphabet letters only (a-z, A-Z) instead of regular characters")
-    parser.add_argument("--digits", action="store_true", help="Use digits only (0-9) instead of regular characters")
-    parser.add_argument("--alphanumeric", action="store_true", help="Use alphanumeric characters (a-z, A-Z, 0-9) instead of regular characters")
+    parser.add_argument("--mode", choices=list(MODE_CHARS.keys()), default="chars", help="Character set: 'chars' (default), 'blocks' (█ ▓ ▒ ░ space), 'alphabet' (a-z, A-Z), 'digits' (0-9), or 'alphanumeric' (a-z, A-Z, 0-9)")
     parser.add_argument("--preserve-colors", action="store_true", help="Preserve original colors (ignores fg-color, disables grayscale and normalization)")
     parser.add_argument("--tint", help="Tint color to apply when --preserve-colors is set (e.g., 'red', '#FF0000')", default=None)
     parser.add_argument("--adjust-aspect-ratio", action="store_true", help="For .txt output, adjust source image AR to compensate for terminal cell aspect (~1:2) so output is not stretched")
