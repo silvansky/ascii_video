@@ -5,8 +5,8 @@ import numpy as np
 import cv2
 from PIL import Image
 from emoji_common import (
-    EMOJI_SETS, pre_render_emojis, load_emoji_font, parse_colors,
-    process_frame, EmojiFrameOptions, add_common_arguments
+    EMOJI_SETS, pre_render_emojis, compute_emoji_colors, frame_to_emoji_text,
+    load_emoji_font, parse_colors, process_frame, EmojiFrameOptions, add_common_arguments
 )
 
 
@@ -38,7 +38,17 @@ def process_image(image_path, font, font_size, output_path, emoji_size=32, scale
     # Get emojis
     emojis = EMOJI_SETS[emoji_set]
     print(f"Emoji set: {emoji_set} ({len(emojis)} emojis)")
-    
+
+    if output_path.lower().endswith(".txt"):
+        print("Computing emoji colors...")
+        emoji_colors = compute_emoji_colors(font, font_size, bg_color, emojis)
+        print("Rendering text...")
+        text = frame_to_emoji_text(frame, emoji_size, emojis, emoji_colors)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(text)
+        print(f"Saved to {output_path}")
+        return
+
     # Pre-render emoji palette and get colors
     print("Pre-rendering emojis...")
     emoji_palette, emoji_colors = pre_render_emojis(font, font_size, emoji_size, bg_color, emojis)

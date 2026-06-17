@@ -64,6 +64,30 @@ def get_emoji_average_color(emoji, font, size, bg_color):
         return np.array(bg_color, dtype=np.float32)
 
 
+def compute_emoji_colors(font, font_size, bg_color, emojis):
+    """Compute average color of each emoji. Returns array of shape (num_emojis, 3)."""
+    return np.stack([get_emoji_average_color(e, font, font_size, bg_color) for e in emojis])
+
+
+def frame_to_emoji_text(frame, emoji_size, emojis, emoji_colors, swap_dims=False):
+    """Convert a frame to an emoji-art string by nearest color matching."""
+    h, w = frame.shape[:2]
+    if swap_dims:
+        h, w = w, h
+    cols = w // emoji_size
+    rows = h // emoji_size
+
+    img_small = cv2.resize(frame, (cols, rows), interpolation=cv2.INTER_AREA).astype(np.float32)
+
+    img_expanded = img_small[:, :, np.newaxis, :]
+    colors_expanded = emoji_colors[np.newaxis, np.newaxis, :, :]
+    diff = img_expanded - colors_expanded
+    distances = np.sum(diff ** 2, axis=-1)
+    indices = np.argmin(distances, axis=-1)
+
+    return "\n".join("".join(emojis[idx] for idx in row) for row in indices)
+
+
 def pre_render_emojis(font, font_size, target_size, bg_color, emojis):
     """
     Renders every emoji into a numpy array once.
