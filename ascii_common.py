@@ -26,6 +26,9 @@ ASCII_DIGITS = [' ', '7', '1', '2', '4', '3', '5', '6', '9', '8', '0']
 # Space is added at the beginning for the darkest color
 ASCII_ALPHANUMERIC = [' ', 'r', 'v', 'x', 'c', 'z', 'l', '7', 'j', 'Y', 'L', 'n', 'u', 's', 'y', 'J', 'w', 'i', '1', 't', 'T', 'f', 'C', 'o', 'V', 'I', '2', 'k', 'F', 'S', 'h', 'X', '4', 'a', 'Z', '3', 'm', 'A', '5', 'p', 'q', 'U', 'P', 'e', 'K', 'G', 'b', 'd', '6', '9', 'O', 'H', 'E', 'g', 'D', 'Q', 'R', '8', 'W', 'M', 'B', 'N', '0']
 
+# Braille dots from darkest (empty) to lightest (full cell), by dot density
+ASCII_DOTS = [' ', '⠁', '⠃', '⠇', '⠏', '⠟', '⠿', '⡿', '⣿']
+
 @dataclass
 class AsciiFrameOptions:
     """Options for processing a frame into ASCII art."""
@@ -46,6 +49,7 @@ MODE_CHARS = {
     "alphabet": ASCII_ALPHABET,
     "digits": ASCII_DIGITS,
     "alphanumeric": ASCII_ALPHANUMERIC,
+    "dots": ASCII_DOTS,
 }
 
 def select_chars(mode="chars"):
@@ -139,7 +143,7 @@ def add_common_arguments(parser, input_help="Path to input file", output_help="P
     parser.add_argument("--bg-color", help="Background color (e.g., 'black', '#000000')", default="black")
     parser.add_argument("--fg-color", help="Foreground color (e.g., 'white', '#FFFFFF')", default="white")
     parser.add_argument("--invert-brightness", action="store_true", help="Invert brightness mapping (bright areas become dark characters)")
-    parser.add_argument("--mode", choices=list(MODE_CHARS.keys()), default="chars", help="Character set: 'chars' (default), 'blocks' (█ ▓ ▒ ░ space), 'alphabet' (a-z, A-Z), 'digits' (0-9), or 'alphanumeric' (a-z, A-Z, 0-9)")
+    parser.add_argument("--mode", choices=list(MODE_CHARS.keys()), default="chars", help="Character set: 'chars' (default), 'blocks' (█ ▓ ▒ ░ space), 'alphabet' (a-z, A-Z), 'digits' (0-9), 'alphanumeric' (a-z, A-Z, 0-9), or 'dots' (braille ⠁⠿⣿)")
     parser.add_argument("--preserve-colors", action="store_true", help="Preserve original colors (ignores fg-color, disables grayscale and normalization)")
     parser.add_argument("--tint", help="Tint color to apply when --preserve-colors is set (e.g., 'red', '#FF0000')", default=None)
     parser.add_argument("--adjust-aspect-ratio", action="store_true", help="For .txt output, adjust source image AR to compensate for terminal cell aspect (~1:2) so output is not stretched")
@@ -157,7 +161,7 @@ def measure_font_metrics(font):
     dummy_draw = ImageDraw.Draw(dummy_img)
     
     # Collect all characters from all sets
-    all_chars = set(ASCII_CHARS + ASCII_BLOCKS + ASCII_ALPHABET + ASCII_DIGITS + ASCII_ALPHANUMERIC)
+    all_chars = set(ASCII_CHARS + ASCII_BLOCKS + ASCII_ALPHABET + ASCII_DIGITS + ASCII_ALPHANUMERIC + ASCII_DOTS)
     
     # First pass: find baseline offsets (minimum left and top)
     min_left = float('inf')
