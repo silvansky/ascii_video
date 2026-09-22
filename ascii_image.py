@@ -9,7 +9,7 @@ from ascii_common import (
     measure_font_metrics, process_frame, AsciiFrameOptions, add_common_arguments
 )
 
-def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, mode="chars", preserve_colors=False, tint_color=None, adjust_aspect_ratio=False, ansi_colors=False):
+def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, mode="chars", preserve_colors=False, tint_color=None, adjust_aspect_ratio=False, ansi_colors=False, ansi_fg_only=False):
     """
     Fast processing using Numpy tiling.
     """
@@ -51,7 +51,8 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
             print(f"Adjusted AR: {w}x{h} -> {w}x{new_h}")
         print("Rendering text...")
         text = frame_to_text(frame, char_w, char_h, chars, invert_brightness=invert_brightness, mode=mode,
-                             ansi_colors=ansi_colors, tint_color=tint_color)
+                             ansi_colors=ansi_colors or ansi_fg_only, ansi_fg_only=ansi_fg_only,
+                             tint_color=tint_color)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(text)
         print(f"Saved to {output_path}")
@@ -112,7 +113,7 @@ def main():
     # Font loading
     font = load_font(args.fontsize)
     try:
-        process_image_numpy(args.input, font, args.output, args.scale, bg_color, fg_color, args.invert_brightness, args.mode, args.preserve_colors, tint_color, args.adjust_aspect_ratio, args.ansi_colors)
+        process_image_numpy(args.input, font, args.output, args.scale, bg_color, fg_color, args.invert_brightness, args.mode, args.preserve_colors, tint_color, args.adjust_aspect_ratio, args.ansi_colors, args.ansi_fg_only)
     except Exception as e:
         print(f"Error: {e}")
 

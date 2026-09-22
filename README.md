@@ -86,6 +86,8 @@ carries shape instead of just brightness - 8x the detail at the same grid size.
 Image and video output draws these glyphs directly, no font needed.
 `.txt` output is plain text unless `--ansi-colors` is set, which gives each
 cell a foreground and a background color - so a single cell can hold two colors.
+`--ansi-fg-only` emits foreground codes alone, leaving unlit subcells on the
+terminal background; use it for readers that ignore `48;` codes.
 
 For `.txt` output the terminal has to render them:
 
@@ -131,6 +133,7 @@ python ascii_image.py <input_image> [options]
 - `--tint`: Tint color to apply when `--preserve-colors` is set - accepts color names or hex codes (e.g., "red", "#FF6600")
 - `--adjust-aspect-ratio`: For `.txt` output, compensate for the ~1:2 terminal cell aspect so the result is not stretched
 - `--ansi-colors`: For `.txt` output, emit 24-bit ANSI color codes from the source - shape modes color lit and unlit subcells separately
+- `--ansi-fg-only`: Like `--ansi-colors` but foreground only, for consumers that ignore background codes
 
 ### Examples
 

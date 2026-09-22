@@ -126,3 +126,19 @@ def test_ramp_mode_ansi_has_foreground_only():
     frame = np.full((8, 8, 3), 255, dtype=np.uint8)
     text = frame_to_text(frame, char_w=8, char_h=8, chars=MODE_CHARS["chars"], ansi_colors=True)
     assert "38;2;255;255;255" in text and "48;2" not in text
+
+
+def test_fg_only_drops_background_codes():
+    frame = np.zeros((8, 8, 3), dtype=np.uint8)
+    frame[:, :4] = (200, 100, 50)
+    text = frame_to_text(frame, char_w=8, char_h=8, chars=MODE_CHARS["octants"],
+                         mode="octants", ansi_colors=True, ansi_fg_only=True)
+    assert text == "\x1b[38;2;200;100;50m▌\x1b[0m"
+
+
+def test_fg_only_leaves_blank_cells_uncolored():
+    frame = np.zeros((8, 16, 3), dtype=np.uint8)
+    frame[:, :8] = (200, 100, 50)
+    text = frame_to_text(frame, char_w=8, char_h=8, chars=MODE_CHARS["octants"],
+                         mode="octants", ansi_colors=True, ansi_fg_only=True)
+    assert text == "\x1b[38;2;200;100;50m█ \x1b[0m"

@@ -341,6 +341,7 @@ def add_common_arguments(parser, input_help="Path to input file", output_help="P
     parser.add_argument("--tint", help="Tint color to apply when --preserve-colors is set (e.g., 'red', '#FF0000')", default=None)
     parser.add_argument("--adjust-aspect-ratio", action="store_true", help="For .txt output, adjust source image AR to compensate for terminal cell aspect (~1:2) so output is not stretched")
     parser.add_argument("--ansi-colors", action="store_true", help="For .txt output, emit 24-bit ANSI color codes taken from the source (shape modes color lit and unlit subcells separately)")
+    parser.add_argument("--ansi-fg-only", action="store_true", help="Like --ansi-colors but foreground only, for importers that ignore background codes (e.g. dartboard --read-raw)")
 
 def measure_font_metrics(font):
     """
@@ -408,11 +409,12 @@ def measure_font_metrics(font):
     return int(round(char_w + padding_w)), int(round(char_h + padding_h))
 
 def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_dims=False, mode="chars",
-                  ansi_colors=False, tint_color=None):
+                  ansi_colors=False, ansi_fg_only=False, tint_color=None):
     """
     Convert a frame (RGB numpy array) into a multi-line ASCII string.
     Uses grayscale + min/max normalization for character selection.
-    With ansi_colors, each cell carries 24-bit color escapes taken from the source.
+    With ansi_colors, each cell carries 24-bit color escapes taken from the source;
+    ansi_fg_only drops the background half, for consumers that ignore it.
     """
     h, w = frame.shape[:2]
     if swap_dims:
@@ -429,6 +431,8 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
         if not ansi_colors:
             return "\n".join("".join(chars[idx] for idx in row) for row in indices)
         fg, bg = shape_cell_colors(frame, rows, cols, mode, lit)
+        if ansi_fg_only:
+            return ansi_text(indices, chars, apply_tint(fg, tint_color))
         return ansi_text(indices, chars, apply_tint(fg, tint_color), apply_tint(bg, tint_color))
 
     img_small = cv2.resize(img_gray, (cols, rows), interpolation=cv2.INTER_NEAREST)
