@@ -29,6 +29,71 @@ ASCII_ALPHANUMERIC = [' ', 'r', 'v', 'x', 'c', 'z', 'l', '7', 'j', 'Y', 'L', 'n'
 # Braille dots from darkest (empty) to lightest (full cell), by dot density
 ASCII_DOTS = [' ', '⠁', '⠃', '⠇', '⠏', '⠟', '⠿', '⡿', '⣿']
 
+# Sub-cell shape sets: index is a bit pattern over the cell's subcells,
+# bit 0 = top-left, filled row by row (LSB first). Covers every pattern, so a
+# cell is encoded exactly instead of approximated by brightness.
+QUADRANT_CHARS = [
+    ' ', '▘', '▝', '▀', '▖', '▌', '▞', '▛',
+    '▗', '▚', '▐', '▜', '▄', '▙', '▟', '█',
+]
+
+SEXTANT_CHARS = [
+    ' ', '🬀', '🬁', '🬂', '🬃', '🬄', '🬅', '🬆',
+    '🬇', '🬈', '🬉', '🬊', '🬋', '🬌', '🬍', '🬎',
+    '🬏', '🬐', '🬑', '🬒', '🬓', '▌', '🬔', '🬕',
+    '🬖', '🬗', '🬘', '🬙', '🬚', '🬛', '🬜', '🬝',
+    '🬞', '🬟', '🬠', '🬡', '🬢', '🬣', '🬤', '🬥',
+    '🬦', '🬧', '▐', '🬨', '🬩', '🬪', '🬫', '🬬',
+    '🬭', '🬮', '🬯', '🬰', '🬱', '🬲', '🬳', '🬴',
+    '🬵', '🬶', '🬷', '🬸', '🬹', '🬺', '🬻', '█',
+]
+
+OCTANT_CHARS = [
+    ' ', '\U0001cea8', '\U0001ceab', '🮂', '\U0001cd00', '▘', '\U0001cd01', '\U0001cd02',
+    '\U0001cd03', '\U0001cd04', '▝', '\U0001cd05', '\U0001cd06', '\U0001cd07', '\U0001cd08', '▀',
+    '\U0001cd09', '\U0001cd0a', '\U0001cd0b', '\U0001cd0c', '\U0001fbe6', '\U0001cd0d', '\U0001cd0e', '\U0001cd0f',
+    '\U0001cd10', '\U0001cd11', '\U0001cd12', '\U0001cd13', '\U0001cd14', '\U0001cd15', '\U0001cd16', '\U0001cd17',
+    '\U0001cd18', '\U0001cd19', '\U0001cd1a', '\U0001cd1b', '\U0001cd1c', '\U0001cd1d', '\U0001cd1e', '\U0001cd1f',
+    '\U0001fbe7', '\U0001cd20', '\U0001cd21', '\U0001cd22', '\U0001cd23', '\U0001cd24', '\U0001cd25', '\U0001cd26',
+    '\U0001cd27', '\U0001cd28', '\U0001cd29', '\U0001cd2a', '\U0001cd2b', '\U0001cd2c', '\U0001cd2d', '\U0001cd2e',
+    '\U0001cd2f', '\U0001cd30', '\U0001cd31', '\U0001cd32', '\U0001cd33', '\U0001cd34', '\U0001cd35', '🮅',
+    '\U0001cea3', '\U0001cd36', '\U0001cd37', '\U0001cd38', '\U0001cd39', '\U0001cd3a', '\U0001cd3b', '\U0001cd3c',
+    '\U0001cd3d', '\U0001cd3e', '\U0001cd3f', '\U0001cd40', '\U0001cd41', '\U0001cd42', '\U0001cd43', '\U0001cd44',
+    '▖', '\U0001cd45', '\U0001cd46', '\U0001cd47', '\U0001cd48', '▌', '\U0001cd49', '\U0001cd4a',
+    '\U0001cd4b', '\U0001cd4c', '▞', '\U0001cd4d', '\U0001cd4e', '\U0001cd4f', '\U0001cd50', '▛',
+    '\U0001cd51', '\U0001cd52', '\U0001cd53', '\U0001cd54', '\U0001cd55', '\U0001cd56', '\U0001cd57', '\U0001cd58',
+    '\U0001cd59', '\U0001cd5a', '\U0001cd5b', '\U0001cd5c', '\U0001cd5d', '\U0001cd5e', '\U0001cd5f', '\U0001cd60',
+    '\U0001cd61', '\U0001cd62', '\U0001cd63', '\U0001cd64', '\U0001cd65', '\U0001cd66', '\U0001cd67', '\U0001cd68',
+    '\U0001cd69', '\U0001cd6a', '\U0001cd6b', '\U0001cd6c', '\U0001cd6d', '\U0001cd6e', '\U0001cd6f', '\U0001cd70',
+    '\U0001cea0', '\U0001cd71', '\U0001cd72', '\U0001cd73', '\U0001cd74', '\U0001cd75', '\U0001cd76', '\U0001cd77',
+    '\U0001cd78', '\U0001cd79', '\U0001cd7a', '\U0001cd7b', '\U0001cd7c', '\U0001cd7d', '\U0001cd7e', '\U0001cd7f',
+    '\U0001cd80', '\U0001cd81', '\U0001cd82', '\U0001cd83', '\U0001cd84', '\U0001cd85', '\U0001cd86', '\U0001cd87',
+    '\U0001cd88', '\U0001cd89', '\U0001cd8a', '\U0001cd8b', '\U0001cd8c', '\U0001cd8d', '\U0001cd8e', '\U0001cd8f',
+    '▗', '\U0001cd90', '\U0001cd91', '\U0001cd92', '\U0001cd93', '▚', '\U0001cd94', '\U0001cd95',
+    '\U0001cd96', '\U0001cd97', '▐', '\U0001cd98', '\U0001cd99', '\U0001cd9a', '\U0001cd9b', '▜',
+    '\U0001cd9c', '\U0001cd9d', '\U0001cd9e', '\U0001cd9f', '\U0001cda0', '\U0001cda1', '\U0001cda2', '\U0001cda3',
+    '\U0001cda4', '\U0001cda5', '\U0001cda6', '\U0001cda7', '\U0001cda8', '\U0001cda9', '\U0001cdaa', '\U0001cdab',
+    '▂', '\U0001cdac', '\U0001cdad', '\U0001cdae', '\U0001cdaf', '\U0001cdb0', '\U0001cdb1', '\U0001cdb2',
+    '\U0001cdb3', '\U0001cdb4', '\U0001cdb5', '\U0001cdb6', '\U0001cdb7', '\U0001cdb8', '\U0001cdb9', '\U0001cdba',
+    '\U0001cdbb', '\U0001cdbc', '\U0001cdbd', '\U0001cdbe', '\U0001cdbf', '\U0001cdc0', '\U0001cdc1', '\U0001cdc2',
+    '\U0001cdc3', '\U0001cdc4', '\U0001cdc5', '\U0001cdc6', '\U0001cdc7', '\U0001cdc8', '\U0001cdc9', '\U0001cdca',
+    '\U0001cdcb', '\U0001cdcc', '\U0001cdcd', '\U0001cdce', '\U0001cdcf', '\U0001cdd0', '\U0001cdd1', '\U0001cdd2',
+    '\U0001cdd3', '\U0001cdd4', '\U0001cdd5', '\U0001cdd6', '\U0001cdd7', '\U0001cdd8', '\U0001cdd9', '\U0001cdda',
+    '▄', '\U0001cddb', '\U0001cddc', '\U0001cddd', '\U0001cdde', '▙', '\U0001cddf', '\U0001cde0',
+    '\U0001cde1', '\U0001cde2', '▟', '\U0001cde3', '▆', '\U0001cde4', '\U0001cde5', '█',
+]
+
+# mode -> (subcells across, subcells down, characters)
+SHAPE_MODES = {
+    "quadrants": (2, 2, QUADRANT_CHARS),
+    "sextants": (2, 3, SEXTANT_CHARS),
+    "octants": (2, 4, OCTANT_CHARS),
+}
+
+# Cells flatter than this are drawn solid instead of thresholded, to keep
+# smooth areas from turning into noise.
+SHAPE_CONTRAST_FLOOR = 0.12
+
 @dataclass
 class AsciiFrameOptions:
     """Options for processing a frame into ASCII art."""
@@ -41,6 +106,7 @@ class AsciiFrameOptions:
     bg_color: tuple = (0, 0, 0)  # Background color tuple (RGB) - used for color preservation
     fg_color: tuple = (255, 255, 255)  # Foreground color tuple (RGB) - used for color preservation
     swap_dims: bool = False  # If True, swap h and w (for rotated videos)
+    mode: str = "chars"  # Character set name (shape modes select glyphs by sub-cell pattern)
     tint_color: tuple = None  # Tint color tuple (RGB) - applied when preserve_colors is True
 
 MODE_CHARS = {
@@ -50,17 +116,70 @@ MODE_CHARS = {
     "digits": ASCII_DIGITS,
     "alphanumeric": ASCII_ALPHANUMERIC,
     "dots": ASCII_DOTS,
+    "quadrants": QUADRANT_CHARS,
+    "sextants": SEXTANT_CHARS,
+    "octants": OCTANT_CHARS,
 }
 
 def select_chars(mode="chars"):
     """Return the character set list based on mode."""
     return MODE_CHARS[mode]
 
+def is_shape_mode(mode):
+    """True for modes that encode sub-cell shape instead of brightness."""
+    return mode in SHAPE_MODES
+
+def shape_indices(img_gray, rows, cols, mode, invert_brightness=False):
+    """
+    Map each cell to a sub-cell bit pattern (index into the mode's char list).
+    Thresholds every cell at its own midpoint, so edges stay sharp.
+    """
+    sub_x, sub_y, _ = SHAPE_MODES[mode]
+    sub = cv2.resize(img_gray, (cols * sub_x, rows * sub_y), interpolation=cv2.INTER_AREA).astype(np.float32)
+
+    sub_min, sub_max = sub.min(), sub.max()
+    sub = (sub - sub_min) / (sub_max - sub_min) if sub_max > sub_min else sub / 255.0
+
+    cells = sub.reshape(rows, sub_y, cols, sub_x).transpose(0, 2, 1, 3).reshape(rows, cols, sub_y * sub_x)
+    cell_min = cells.min(axis=-1, keepdims=True)
+    cell_max = cells.max(axis=-1, keepdims=True)
+
+    lit = cells > (cell_min + cell_max) / 2
+    flat = (cell_max - cell_min) < SHAPE_CONTRAST_FLOOR
+    lit = np.where(flat, cells.mean(axis=-1, keepdims=True) > 0.5, lit)
+    if invert_brightness:
+        lit = ~lit
+
+    weights = (1 << np.arange(sub_y * sub_x)).astype(np.int64)
+    return (lit * weights).sum(axis=-1)
+
+def render_shape_palette(char_width, char_height, bg_color, fg_color, mode):
+    """
+    Draw the sub-cell glyphs as rectangles instead of using the font.
+    No font covers the sextant/octant ranges, and drawn cells tile seamlessly.
+    Returns a numpy array of shape (num_chars, h, w, 3).
+    """
+    sub_x, sub_y, chars = SHAPE_MODES[mode]
+    xs = np.linspace(0, char_width, sub_x + 1).round().astype(int)
+    ys = np.linspace(0, char_height, sub_y + 1).round().astype(int)
+
+    palette = np.empty((len(chars), char_height, char_width, 3), dtype=np.uint8)
+    palette[:] = np.array(bg_color, dtype=np.uint8)
+    for pattern in range(len(chars)):
+        for bit in range(sub_x * sub_y):
+            if pattern >> bit & 1:
+                row, col = divmod(bit, sub_x)
+                palette[pattern, ys[row]:ys[row + 1], xs[col]:xs[col + 1]] = fg_color
+    return palette
+
 def pre_render_chars(font, char_width, char_height, bg_color, fg_color, mode="chars"):
     """
     Renders every ASCII char into a numpy array (stamp) once.
     Returns a numpy array of shape (num_chars, h, w, 3).
     """
+    if is_shape_mode(mode):
+        return render_shape_palette(char_width, char_height, bg_color, fg_color, mode)
+
     chars = select_chars(mode)
     
     # Measure font metrics to establish baseline alignment
@@ -143,7 +262,7 @@ def add_common_arguments(parser, input_help="Path to input file", output_help="P
     parser.add_argument("--bg-color", help="Background color (e.g., 'black', '#000000')", default="black")
     parser.add_argument("--fg-color", help="Foreground color (e.g., 'white', '#FFFFFF')", default="white")
     parser.add_argument("--invert-brightness", action="store_true", help="Invert brightness mapping (bright areas become dark characters)")
-    parser.add_argument("--mode", choices=list(MODE_CHARS.keys()), default="chars", help="Character set: 'chars' (default), 'blocks' (█ ▓ ▒ ░ space), 'alphabet' (a-z, A-Z), 'digits' (0-9), 'alphanumeric' (a-z, A-Z, 0-9), or 'dots' (braille ⠁⠿⣿)")
+    parser.add_argument("--mode", choices=list(MODE_CHARS.keys()), default="chars", help="Character set: 'chars' (default), 'blocks' (█ ▓ ▒ ░ space), 'alphabet' (a-z, A-Z), 'digits' (0-9), 'alphanumeric' (a-z, A-Z, 0-9), 'dots' (braille ⠁⠿⣿), or the sub-cell shape sets 'quadrants' (2x2 ▘▚▛), 'sextants' (2x3 🬀🬂🬎) and 'octants' (2x4 𜴀𜶮𜷝, sharpest)")
     parser.add_argument("--preserve-colors", action="store_true", help="Preserve original colors (ignores fg-color, disables grayscale and normalization)")
     parser.add_argument("--tint", help="Tint color to apply when --preserve-colors is set (e.g., 'red', '#FF0000')", default=None)
     parser.add_argument("--adjust-aspect-ratio", action="store_true", help="For .txt output, adjust source image AR to compensate for terminal cell aspect (~1:2) so output is not stretched")
@@ -213,7 +332,7 @@ def measure_font_metrics(font):
     # Return integer dimensions
     return int(round(char_w + padding_w)), int(round(char_h + padding_h))
 
-def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_dims=False):
+def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_dims=False, mode="chars"):
     """
     Convert a frame (RGB numpy array) into a multi-line ASCII string.
     Uses grayscale + min/max normalization for character selection.
@@ -225,6 +344,11 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
     rows = h // char_h
 
     img_gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+
+    if is_shape_mode(mode):
+        indices = shape_indices(img_gray, rows, cols, mode, invert_brightness)
+        return "\n".join("".join(chars[idx] for idx in row) for row in indices)
+
     img_small = cv2.resize(img_gray, (cols, rows), interpolation=cv2.INTER_NEAREST)
 
     num_chars = len(chars)
@@ -261,6 +385,11 @@ def process_frame(frame, options):
     cols = w // options.char_w
     rows = h // options.char_h
     
+    shape_idx = None
+    if is_shape_mode(options.mode):
+        shape_idx = shape_indices(cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY), rows, cols,
+                                  options.mode, options.invert_brightness)
+    
     if options.preserve_colors:
         # Preserve colors mode: skip grayscale and normalization
         # Resize RGB frame to grid size
@@ -282,6 +411,8 @@ def process_frame(frame, options):
             indices = (img_brightness / 255.0 * (num_chars - 1)).astype(int)
         
         indices = np.clip(indices, 0, num_chars - 1)
+        if shape_idx is not None:
+            indices = shape_idx
         
         # Get selected characters
         tiled_chars = options.char_palette[indices]  # (rows, cols, char_h, char_w, 3)
@@ -352,6 +483,8 @@ def process_frame(frame, options):
             indices = (img_normalized * (num_chars - 1)).astype(int)
         
         indices = np.clip(indices, 0, num_chars - 1)
+        if shape_idx is not None:
+            indices = shape_idx
 
         # The Magic Trick (Advanced Numpy Indexing)
         tiled_chars = options.char_palette[indices]

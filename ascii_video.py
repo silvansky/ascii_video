@@ -106,7 +106,8 @@ def process_video_numpy(clip, font, output_path, scale=1.0, video_path=None, bg_
         bg_color=bg_color,
         fg_color=fg_color,
         swap_dims=swap_dims,
-        tint_color=tint_color
+        tint_color=tint_color,
+        mode=mode
     )
     
     print("Rendering frames...")

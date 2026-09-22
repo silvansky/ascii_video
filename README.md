@@ -36,7 +36,7 @@ python ascii_video.py <input_video> [options]
 - `--bg-color`: Background color - accepts color names (e.g., "black", "white") or hex codes (e.g., "#000000") (default: "black")
 - `--fg-color`: Foreground color - accepts color names (e.g., "white", "black") or hex codes (e.g., "#FFFFFF") (default: "white")
 - `--invert-brightness`: Invert brightness mapping - bright areas become dark characters, dark areas become bright characters
-- `--blocks`: Use ASCII block characters (█ ▓ ▒ ░ space) instead of regular characters
+- `--mode`: Character set - `chars` (default), `blocks` (█ ▓ ▒ ░ space), `alphabet`, `digits`, `alphanumeric`, `dots` (braille), or the sub-cell shape sets `quadrants` (2x2), `sextants` (2x3) and `octants` (2x4)
 - `--preserve-colors`: Preserve original colors from the image/video - ignores fg-color, disables grayscale conversion and brightness normalization
 - `--tint`: Tint color to apply when `--preserve-colors` is set - accepts color names or hex codes (e.g., "red", "#FF6600")
 
@@ -65,7 +65,10 @@ python ascii_video.py input.mp4 --bg-color "#0000FF" --fg-color "#FFFF00"
 python ascii_video.py input.mp4 --invert-brightness
 
 # Use ASCII block characters
-python ascii_video.py input.mp4 --blocks
+python ascii_video.py input.mp4 --mode blocks
+
+# Sub-cell shapes - 2x4 subpixels per cell, the sharpest mode
+python ascii_video.py input.mp4 --mode octants
 
 # Preserve original colors
 python ascii_video.py input.mp4 --preserve-colors
@@ -74,6 +77,24 @@ python ascii_video.py input.mp4 --preserve-colors
 python ascii_video.py input.mp4 --preserve-colors --tint red
 python ascii_video.py input.mp4 --preserve-colors --tint "#FF6600"
 ```
+
+### Sub-cell shape modes
+
+`quadrants`, `sextants` and `octants` split every cell into a grid of subcells
+(2x2, 2x3, 2x4) and pick the character matching the lit pattern, so a cell
+carries shape instead of just brightness - 8x the detail at the same grid size.
+Image and video output draws these glyphs directly, no font needed.
+
+For `.txt` output the terminal has to render them:
+
+| Mode | Range | Support |
+|---|---|---|
+| `quadrants` | U+2580 block elements | everywhere |
+| `sextants` | U+1FB00 | terminals that draw block glyphs themselves (Ghostty, kitty, foot, WezTerm) |
+| `octants` | U+1CD00, Unicode 16 | same, recent versions only |
+
+Those terminals ignore the font for these ranges. Anywhere else you need a font
+covering U+1FB00/U+1CD00 (GNU Unifont has both) or the glyphs show up as `?`.
 
 ### Example Output
 
@@ -103,7 +124,7 @@ python ascii_image.py <input_image> [options]
 - `--bg-color`: Background color - accepts color names (e.g., "black", "white") or hex codes (e.g., "#000000") (default: "black")
 - `--fg-color`: Foreground color - accepts color names (e.g., "white", "black") or hex codes (e.g., "#FFFFFF") (default: "white")
 - `--invert-brightness`: Invert brightness mapping - bright areas become dark characters, dark areas become bright characters
-- `--blocks`: Use ASCII block characters (█ ▓ ▒ ░ space) instead of regular characters
+- `--mode`: Character set - `chars` (default), `blocks` (█ ▓ ▒ ░ space), `alphabet`, `digits`, `alphanumeric`, `dots` (braille), or the sub-cell shape sets `quadrants` (2x2), `sextants` (2x3) and `octants` (2x4)
 - `--preserve-colors`: Preserve original colors from the image/video - ignores fg-color, disables grayscale conversion and brightness normalization
 - `--tint`: Tint color to apply when `--preserve-colors` is set - accepts color names or hex codes (e.g., "red", "#FF6600")
 
@@ -132,7 +153,10 @@ python ascii_image.py input.jpg --bg-color "#0000FF" --fg-color "#FFFF00"
 python ascii_image.py input.jpg --invert-brightness
 
 # Use ASCII block characters
-python ascii_image.py input.jpg --blocks
+python ascii_image.py input.jpg --mode blocks
+
+# Sub-cell shapes - 2x4 subpixels per cell, the sharpest mode
+python ascii_image.py input.jpg --mode octants
 
 # Preserve original colors
 python ascii_image.py input.jpg --preserve-colors

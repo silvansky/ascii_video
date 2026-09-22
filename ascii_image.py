@@ -50,7 +50,7 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
             frame = cv2.resize(frame, (w, new_h), interpolation=cv2.INTER_AREA)
             print(f"Adjusted AR: {w}x{h} -> {w}x{new_h}")
         print("Rendering text...")
-        text = frame_to_text(frame, char_w, char_h, chars, invert_brightness=invert_brightness)
+        text = frame_to_text(frame, char_w, char_h, chars, invert_brightness=invert_brightness, mode=mode)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(text)
         print(f"Saved to {output_path}")
@@ -73,7 +73,8 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
         bg_color=bg_color,
         fg_color=fg_color,
         swap_dims=False,
-        tint_color=tint_color
+        tint_color=tint_color,
+        mode=mode
     )
     
     # Process frame using common function
