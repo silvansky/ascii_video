@@ -1,9 +1,11 @@
+import cv2
 import numpy as np
 import pytest
 
 from ascii_common import (
-    MODE_CHARS, SHAPE_MODES, frame_to_text, is_shape_mode,
-    render_shape_palette, shape_indices,
+    MASK_MODES, MASK_PAIRS, MASK_RES, MODE_CHARS, SHAPE_MODES, AsciiFrameOptions,
+    frame_to_text, is_mask_mode, is_shape_mode, mask_cell_colors, mask_indices,
+    process_frame, render_mask_palette, render_shape_palette, shape_indices,
 )
 
 
@@ -142,3 +144,121 @@ def test_fg_only_leaves_blank_cells_uncolored():
     text = frame_to_text(frame, char_w=8, char_h=8, chars=MODE_CHARS["octants"],
                          mode="octants", ansi_colors=True, ansi_fg_only=True)
     assert text == "\x1b[38;2;200;100;50m█ \x1b[0m"
+
+
+def diagonal_cell(size=48, slope=0.5):
+    """Cell lit below the cut from the upper left corner to the lower centre."""
+    axis = (np.arange(size) + 0.5) / size
+    x, y = np.meshgrid(axis, axis)
+    return np.where(x < slope * y, 255, 0).astype(np.uint8)
+
+
+@pytest.mark.parametrize("mode", MASK_MODES)
+def test_mask_alphabets_are_unique_and_complete(mode):
+    chars, masks = MASK_MODES[mode]
+    assert len(set(chars)) == len(chars)
+    assert " " in chars and "█" in chars
+    assert masks.shape == (len(chars), MASK_RES * MASK_RES)
+    assert (masks >= 0).all() and (masks <= 1).all()
+
+
+@pytest.mark.parametrize("mode", MASK_MODES)
+def test_every_glyph_has_its_complement(mode):
+    chars, masks = MASK_MODES[mode]
+    reps, mates = MASK_PAIRS[mode]
+    assert len(reps) * 2 == len(chars)
+    assert np.allclose(masks[reps] + masks[mates], 1.0, atol=1e-4)
+
+
+def test_wedge_alphabet_covers_the_unicode_run():
+    chars = MODE_CHARS["wedges"]
+    diagonals = [c for c in chars if 0x1FB3C <= ord(c) <= 0x1FB67]
+    assert len(diagonals) == 0x1FB68 - 0x1FB3C
+
+
+def area_of(char, mode="wedges"):
+    chars, masks = MASK_MODES[mode]
+    return masks[chars.index(char)].mean()
+
+
+def test_wedge_areas_match_their_geometry():
+    assert area_of("🭀") == pytest.approx(0.25)  # corner to lower centre, quarter cell
+    assert area_of("🬼") == pytest.approx(1 / 12, abs=1e-3)  # lower third of the left edge
+    assert area_of("🭬") == pytest.approx(0.25)  # left triangular quarter
+    assert area_of("🭨") == pytest.approx(0.75)  # its three quarter complement
+    assert area_of("▀") == pytest.approx(0.5)
+
+
+def test_wedge_fits_a_slanted_edge():
+    indices = mask_indices(diagonal_cell(), rows=1, cols=1, mode="wedges")
+    assert MODE_CHARS["wedges"][indices[0, 0]] == "🭀"
+
+
+def test_wedge_invert_draws_the_other_half():
+    indices = mask_indices(diagonal_cell(), rows=1, cols=1, mode="wedges", invert_brightness=True)
+    assert MODE_CHARS["wedges"][indices[0, 0]] == "🭖"
+
+
+def test_wedge_flat_cells_stay_solid():
+    gray = np.zeros((8, 16), dtype=np.uint8)
+    gray[:, :8] = 200
+    indices = mask_indices(gray, rows=1, cols=2, mode="wedges")
+    assert [MODE_CHARS["wedges"][i] for i in indices[0]] == ["█", " "]
+
+
+def test_hybrid_keeps_whichever_fits_better():
+    eighth = np.zeros((16, 16), dtype=np.uint8)
+    eighth[:4, :8] = 255  # one octant sub-cell, no wedge can cut that corner
+    assert MODE_CHARS["wedges-octants"][mask_indices(eighth, 1, 1, "wedges-octants")[0, 0]] == MODE_CHARS["octants"][1]
+    assert MODE_CHARS["wedges-octants"][mask_indices(diagonal_cell(), 1, 1, "wedges-octants")[0, 0]] == "🭀"
+
+
+def test_hybrid_alphabet_holds_both_sets():
+    hybrid = set(MODE_CHARS["wedges-octants"])
+    assert hybrid >= set(MODE_CHARS["wedges"]) | set(MODE_CHARS["octants"])
+
+
+def test_mask_modes_are_exposed_to_the_cli():
+    for mode in MASK_MODES:
+        assert is_shape_mode(mode) and is_mask_mode(mode)
+        assert MODE_CHARS[mode] == MASK_MODES[mode][0]
+    assert not is_mask_mode("octants")
+
+
+def test_render_mask_palette_blends_by_coverage():
+    palette = render_mask_palette(6, 8, (0, 0, 0), (255, 255, 255), "wedges")
+    chars = MODE_CHARS["wedges"]
+    assert palette.shape == (len(chars), 8, 6, 3)
+    assert (palette[chars.index(" ")] == 0).all()
+    assert (palette[chars.index("█")] == 255).all()
+    wedge = palette[chars.index("🭀")]
+    assert wedge[7, 0] == pytest.approx(255)  # lower left corner is inside the cut
+    assert (wedge[0, 5] == 0).all()  # upper right corner is outside it
+    assert wedge.mean() == pytest.approx(255 * 0.25, rel=0.05)
+
+
+def test_wedge_cell_colors_split_across_the_cut():
+    frame = np.zeros((16, 16, 3), dtype=np.uint8)
+    frame[:, :8] = (200, 100, 50)
+    indices = mask_indices(cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY), 1, 1, "wedges")
+    fg, bg = mask_cell_colors(frame.astype(np.float32), 1, 1, "wedges", indices)
+    assert MODE_CHARS["wedges"][indices[0, 0]] == "▌"
+    assert fg[0, 0] == pytest.approx([200, 100, 50], abs=1)
+    assert bg[0, 0] == pytest.approx([0, 0, 0], abs=1)
+
+
+def test_frame_to_text_wedges_with_ansi():
+    frame = np.zeros((16, 16, 3), dtype=np.uint8)
+    frame[:, :8] = (200, 100, 50)
+    text = frame_to_text(frame, char_w=16, char_h=16, chars=MODE_CHARS["wedges"],
+                         mode="wedges", ansi_colors=True)
+    assert text == "\x1b[38;2;200;100;50;48;2;0;0;0m▌\x1b[0m"
+
+
+def test_process_frame_draws_wedges():
+    frame = np.repeat(diagonal_cell()[:, :, np.newaxis], 3, axis=2)
+    palette = render_mask_palette(48, 48, (0, 0, 0), (255, 255, 255), "wedges")
+    options = AsciiFrameOptions(char_palette=palette, char_w=48, char_h=48, mode="wedges")
+    out = process_frame(frame, options)
+    assert out.shape == (48, 48, 3)
+    assert (out == palette[MODE_CHARS["wedges"].index("🭀")]).all()

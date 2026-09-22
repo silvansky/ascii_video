@@ -36,7 +36,7 @@ python ascii_video.py <input_video> [options]
 - `--bg-color`: Background color - accepts color names (e.g., "black", "white") or hex codes (e.g., "#000000") (default: "black")
 - `--fg-color`: Foreground color - accepts color names (e.g., "white", "black") or hex codes (e.g., "#FFFFFF") (default: "white")
 - `--invert-brightness`: Invert brightness mapping - bright areas become dark characters, dark areas become bright characters
-- `--mode`: Character set - `chars` (default), `blocks` (█ ▓ ▒ ░ space), `alphabet`, `digits`, `alphanumeric`, `dots` (braille), or the sub-cell shape sets `quadrants` (2x2), `sextants` (2x3) and `octants` (2x4)
+- `--mode`: Character set - `chars` (default), `blocks` (█ ▓ ▒ ░ space), `alphabet`, `digits`, `alphanumeric`, `dots` (braille), or the sub-cell shape sets `quadrants` (2x2), `sextants` (2x3), `octants` (2x4), `wedges` (diagonal) and `wedges-octants` (both, per cell)
 - `--preserve-colors`: Preserve original colors from the image/video - ignores fg-color, disables grayscale conversion and brightness normalization
 - `--tint`: Tint color to apply when `--preserve-colors` is set - accepts color names or hex codes (e.g., "red", "#FF6600")
 
@@ -70,6 +70,9 @@ python ascii_video.py input.mp4 --mode blocks
 # Sub-cell shapes - 2x4 subpixels per cell, the sharpest mode
 python ascii_video.py input.mp4 --mode octants
 
+# Diagonal wedges - smoother slanted edges
+python ascii_video.py input.mp4 --mode wedges
+
 # Preserve original colors
 python ascii_video.py input.mp4 --preserve-colors
 
@@ -89,6 +92,18 @@ cell a foreground and a background color - so a single cell can hold two colors.
 `--ansi-fg-only` emits foreground codes alone, leaving unlit subcells on the
 terminal background; use it for readers that ignore `48;` codes.
 
+`wedges` uses the block diagonals (U+1FB3C-U+1FB67) plus the triangular quarter
+blocks instead: each glyph is a corner of the cell cut off by a straight line at
+an arbitrary angle. A rectangular grid quantises every edge to its own subcells,
+so slanted contours - jawlines, hair, silhouettes - come out stair-stepped;
+a wedge follows the angle instead. The trade is the reverse: wedges are poor at
+fine isotropic texture, where the rectangular grids win. `wedges-octants` fits
+both alphabets to every cell and keeps whichever leaves the smaller error.
+
+Both fit a cell as a two-tone split: the glyph, and the mean color on each side
+of its edge. Cells too flat to split stay solid, so smooth areas do not turn
+into noise.
+
 For `.txt` output the terminal has to render them:
 
 | Mode | Range | Support |
@@ -96,6 +111,8 @@ For `.txt` output the terminal has to render them:
 | `quadrants` | U+2580 block elements | everywhere |
 | `sextants` | U+1FB00 | terminals that draw block glyphs themselves (Ghostty, kitty, foot, WezTerm) |
 | `octants` | U+1CD00, Unicode 16 | same, recent versions only |
+| `wedges` | U+1FB3C-U+1FB6F | same as `sextants` |
+| `wedges-octants` | both of the above | same as `octants` |
 
 Those terminals ignore the font for these ranges. Anywhere else you need a font
 covering U+1FB00/U+1CD00 (GNU Unifont has both) or the glyphs show up as `?`.
@@ -128,7 +145,7 @@ python ascii_image.py <input_image> [options]
 - `--bg-color`: Background color - accepts color names (e.g., "black", "white") or hex codes (e.g., "#000000") (default: "black")
 - `--fg-color`: Foreground color - accepts color names (e.g., "white", "black") or hex codes (e.g., "#FFFFFF") (default: "white")
 - `--invert-brightness`: Invert brightness mapping - bright areas become dark characters, dark areas become bright characters
-- `--mode`: Character set - `chars` (default), `blocks` (█ ▓ ▒ ░ space), `alphabet`, `digits`, `alphanumeric`, `dots` (braille), or the sub-cell shape sets `quadrants` (2x2), `sextants` (2x3) and `octants` (2x4)
+- `--mode`: Character set - `chars` (default), `blocks` (█ ▓ ▒ ░ space), `alphabet`, `digits`, `alphanumeric`, `dots` (braille), or the sub-cell shape sets `quadrants` (2x2), `sextants` (2x3), `octants` (2x4), `wedges` (diagonal) and `wedges-octants` (both, per cell)
 - `--preserve-colors`: Preserve original colors from the image/video - ignores fg-color, disables grayscale conversion and brightness normalization
 - `--tint`: Tint color to apply when `--preserve-colors` is set - accepts color names or hex codes (e.g., "red", "#FF6600")
 - `--adjust-aspect-ratio`: For `.txt` output, compensate for the ~1:2 terminal cell aspect so the result is not stretched
@@ -164,6 +181,10 @@ python ascii_image.py input.jpg --mode blocks
 
 # Sub-cell shapes - 2x4 subpixels per cell, the sharpest mode
 python ascii_image.py input.jpg --mode octants
+
+# Diagonal wedges, or wedges and octants competing per cell
+python ascii_image.py input.jpg --mode wedges
+python ascii_image.py input.jpg --mode wedges-octants
 
 # Preserve original colors
 python ascii_image.py input.jpg --preserve-colors

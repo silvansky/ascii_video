@@ -4,6 +4,7 @@ Common utilities for ASCII image and video processing.
 import sys
 import argparse
 from dataclasses import dataclass
+from functools import partial
 import numpy as np
 import cv2
 from PIL import Image, ImageDraw, ImageFont, ImageColor
@@ -94,6 +95,163 @@ SHAPE_MODES = {
 # smooth areas from turning into noise.
 SHAPE_CONTRAST_FLOOR = 0.12
 
+# Diagonal wedge glyphs (U+1FB3C-U+1FB67): each fills one corner of the cell,
+# cut by a straight line between two edge points. The sub-cell grids above
+# quantise every edge to their own rectangles; a wedge places its edge at an
+# arbitrary angle, so slanted contours stay smooth instead of stair-stepping.
+# Cell coordinates run 0..1, y downwards. Unicode names the thirds on the side
+# edges and the centre on the top and bottom edges.
+WEDGE_POINTS = {
+    "ul": (0.0, 0.0), "uc": (0.5, 0.0), "ur": (1.0, 0.0),
+    "ll": (0.0, 1.0), "lc": (0.5, 1.0), "lr": (1.0, 1.0),
+    "uml": (0.0, 1 / 3), "lml": (0.0, 2 / 3), "ml": (0.0, 0.5),
+    "umr": (1.0, 1 / 3), "lmr": (1.0, 2 / 3), "mr": (1.0, 0.5),
+    "cc": (0.5, 0.5),
+}
+
+# char, corner kept, cut endpoints.
+WEDGE_CUTS = [
+    ("🬼", "ll", "lml", "lc"),  # U+1FB3C
+    ("🬽", "ll", "lml", "lr"),  # U+1FB3D
+    ("🬾", "ll", "uml", "lc"),  # U+1FB3E
+    ("🬿", "ll", "uml", "lr"),  # U+1FB3F
+    ("🭀", "ll", "ul", "lc"),  # U+1FB40
+    ("🭁", "lr", "uml", "uc"),  # U+1FB41
+    ("🭂", "lr", "uml", "ur"),  # U+1FB42
+    ("🭃", "lr", "lml", "uc"),  # U+1FB43
+    ("🭄", "lr", "lml", "ur"),  # U+1FB44
+    ("🭅", "lr", "ll", "uc"),  # U+1FB45
+    ("🭆", "lr", "lml", "umr"),  # U+1FB46
+    ("🭇", "lr", "lc", "lmr"),  # U+1FB47
+    ("🭈", "lr", "ll", "lmr"),  # U+1FB48
+    ("🭉", "lr", "lc", "umr"),  # U+1FB49
+    ("🭊", "lr", "ll", "umr"),  # U+1FB4A
+    ("🭋", "lr", "lc", "ur"),  # U+1FB4B
+    ("🭌", "ll", "uc", "umr"),  # U+1FB4C
+    ("🭍", "ll", "ul", "umr"),  # U+1FB4D
+    ("🭎", "ll", "uc", "lmr"),  # U+1FB4E
+    ("🭏", "ll", "ul", "lmr"),  # U+1FB4F
+    ("🭐", "ll", "uc", "lr"),  # U+1FB50
+    ("🭑", "ll", "uml", "lmr"),  # U+1FB51
+    ("🭒", "ur", "lml", "lc"),  # U+1FB52
+    ("🭓", "ur", "lml", "lr"),  # U+1FB53
+    ("🭔", "ur", "uml", "lc"),  # U+1FB54
+    ("🭕", "ur", "uml", "lr"),  # U+1FB55
+    ("🭖", "ur", "ul", "lc"),  # U+1FB56
+    ("🭗", "ul", "uml", "uc"),  # U+1FB57
+    ("🭘", "ul", "uml", "ur"),  # U+1FB58
+    ("🭙", "ul", "lml", "uc"),  # U+1FB59
+    ("🭚", "ul", "lml", "ur"),  # U+1FB5A
+    ("🭛", "ul", "ll", "uc"),  # U+1FB5B
+    ("🭜", "ul", "lml", "umr"),  # U+1FB5C
+    ("🭝", "ul", "lc", "lmr"),  # U+1FB5D
+    ("🭞", "ul", "ll", "lmr"),  # U+1FB5E
+    ("🭟", "ul", "lc", "umr"),  # U+1FB5F
+    ("🭠", "ul", "ll", "umr"),  # U+1FB60
+    ("🭡", "ul", "lc", "ur"),  # U+1FB61
+    ("🭢", "ur", "uc", "umr"),  # U+1FB62
+    ("🭣", "ur", "ul", "umr"),  # U+1FB63
+    ("🭤", "ur", "uc", "lmr"),  # U+1FB64
+    ("🭥", "ur", "ul", "lmr"),  # U+1FB65
+    ("🭦", "ur", "uc", "lr"),  # U+1FB66
+    ("🭧", "ur", "uml", "lmr"),  # U+1FB67
+    # The half blocks are the same construction with an axis-aligned cut.
+    ("▀", "ul", "ml", "mr"),
+    ("▄", "ll", "ml", "mr"),
+    ("▌", "ul", "uc", "lc"),
+    ("▐", "ur", "uc", "lc"),
+]
+
+# Triangles meeting at the cell centre: quarter block, its three-quarter
+# complement, and the quarter's corners (U+1FB6C-U+1FB6F / U+1FB68-U+1FB6B).
+WEDGE_TRIANGLES = [
+    ("🭬", "🭨", ("ul", "cc", "ll")),
+    ("🭭", "🭩", ("ul", "ur", "cc")),
+    ("🭮", "🭪", ("ur", "lr", "cc")),
+    ("🭯", "🭫", ("ll", "cc", "lr")),
+]
+
+# Samples per cell side when fitting a glyph to a cell. Coverage is fractional,
+# so a cut need not land on a sample boundary to be represented.
+MASK_RES = 8
+
+def _side(a, b, x, y):
+    """Signed side of the line a-b, positive on one half plane."""
+    return (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0])
+
+def _cut_cover(corner, start, end, x, y):
+    """1 on the corner's side of the cut, 0 beyond it, 1/2 exactly on it."""
+    a, b = WEDGE_POINTS[start], WEDGE_POINTS[end]
+    kept = _side(a, b, x, y) * _side(a, b, *WEDGE_POINTS[corner])
+    return np.where(kept > 0, 1.0, np.where(kept < 0, 0.0, 0.5))
+
+def _triangle_cover(points, x, y):
+    p = [WEDGE_POINTS[key] for key in points]
+    sides = np.stack([_side(p[i], p[(i + 1) % 3], x, y) for i in range(3)])
+    inside = (sides >= 0).all(axis=0) | (sides <= 0).all(axis=0)
+    return np.where(inside & (sides == 0).any(axis=0), 0.5, inside.astype(np.float32))
+
+def _subcell_cover(pattern, sub_x, sub_y, x, y):
+    col = np.minimum((x * sub_x).astype(int), sub_x - 1)
+    row = np.minimum((y * sub_y).astype(int), sub_y - 1)
+    return ((pattern >> (row * sub_x + col)) & 1).astype(np.float32)
+
+def glyph_coverage(cover, width, height, supersample=6):
+    """Fractional coverage of a glyph over a (height, width) sample grid."""
+    xs = (np.arange(width * supersample) + 0.5) / (width * supersample)
+    ys = (np.arange(height * supersample) + 0.5) / (height * supersample)
+    x, y = np.meshgrid(xs, ys)
+    covered = np.broadcast_to(cover(x, y), x.shape).astype(np.float32)
+    return covered.reshape(height, supersample, width, supersample).mean(axis=(1, 3))
+
+def _wedge_glyphs():
+    glyphs = [(" ", lambda x, y: np.zeros(x.shape, np.float32)),
+              ("█", lambda x, y: np.ones(x.shape, np.float32))]
+    glyphs += [(char, partial(_cut_cover, corner, start, end))
+               for char, corner, start, end in WEDGE_CUTS]
+    for quarter, rest, points in WEDGE_TRIANGLES:
+        cover = partial(_triangle_cover, points)
+        glyphs.append((quarter, cover))
+        glyphs.append((rest, lambda x, y, cover=cover: 1.0 - cover(x, y)))
+    return glyphs
+
+def _subcell_glyphs(mode):
+    sub_x, sub_y, chars = SHAPE_MODES[mode]
+    return [(char, partial(_subcell_cover, pattern, sub_x, sub_y))
+            for pattern, char in enumerate(chars)]
+
+def _unique_glyphs(glyphs):
+    seen = {}
+    for char, cover in glyphs:
+        seen.setdefault(char, cover)
+    return list(seen.items())
+
+MASK_GLYPHS = {
+    "wedges": _wedge_glyphs(),
+    "wedges-octants": _unique_glyphs(_wedge_glyphs() + _subcell_glyphs("octants")),
+}
+
+def _mask_palette(glyphs):
+    """Glyph characters and their coverage vectors, flattened for matching."""
+    chars = [char for char, _ in glyphs]
+    masks = np.stack([glyph_coverage(cover, MASK_RES, MASK_RES).ravel() for _, cover in glyphs])
+    return chars, masks
+
+MASK_MODES = {mode: _mask_palette(glyphs) for mode, glyphs in MASK_GLYPHS.items()}
+
+def _complement_pairs(masks):
+    """
+    One representative per complementary glyph pair, with its mate. Both alphabets
+    are closed under complement, and a pair splits a cell identically, so scoring
+    one of each is enough - which half is drawn is decided by brightness.
+    """
+    index = {np.round(mask, 4).tobytes(): i for i, mask in enumerate(masks)}
+    mates = np.array([index[np.round((1.0 - mask).astype(np.float32), 4).tobytes()] for mask in masks])
+    reps = np.flatnonzero(np.arange(len(masks)) < mates)
+    return reps, mates[reps]
+
+MASK_PAIRS = {mode: _complement_pairs(masks) for mode, (_, masks) in MASK_MODES.items()}
+
 ANSI_RESET = "\x1b[0m"
 
 @dataclass
@@ -121,6 +279,8 @@ MODE_CHARS = {
     "quadrants": QUADRANT_CHARS,
     "sextants": SEXTANT_CHARS,
     "octants": OCTANT_CHARS,
+    "wedges": MASK_MODES["wedges"][0],
+    "wedges-octants": MASK_MODES["wedges-octants"][0],
 }
 
 def select_chars(mode="chars"):
@@ -129,11 +289,14 @@ def select_chars(mode="chars"):
 
 def is_shape_mode(mode):
     """True for modes that encode sub-cell shape instead of brightness."""
-    return mode in SHAPE_MODES
+    return mode in SHAPE_MODES or mode in MASK_MODES
 
-def split_cells(img, rows, cols, mode):
+def is_mask_mode(mode):
+    """True for shape modes whose glyphs are fitted by coverage, not by bit pattern."""
+    return mode in MASK_MODES
+
+def split_cells(img, rows, cols, sub_x, sub_y):
     """Resize to sub-cell resolution and group as (rows, cols, subcells[, channels])."""
-    sub_x, sub_y, _ = SHAPE_MODES[mode]
     sub = cv2.resize(img, (cols * sub_x, rows * sub_y), interpolation=cv2.INTER_AREA).astype(np.float32)
     if sub.ndim == 2:
         return sub.reshape(rows, sub_y, cols, sub_x).transpose(0, 2, 1, 3).reshape(rows, cols, sub_y * sub_x)
@@ -147,7 +310,7 @@ def shape_lit_mask(img_gray, rows, cols, mode, invert_brightness=False):
     so edges stay sharp. Returns a bool array (rows, cols, subcells).
     """
     gray_min, gray_max = img_gray.min(), img_gray.max()
-    cells = split_cells(img_gray, rows, cols, mode)
+    cells = split_cells(img_gray, rows, cols, *SHAPE_MODES[mode][:2])
     cells = (cells - gray_min) / (gray_max - gray_min) if gray_max > gray_min else cells / 255.0
 
     cell_min = cells.min(axis=-1, keepdims=True)
@@ -158,18 +321,21 @@ def shape_lit_mask(img_gray, rows, cols, mode, invert_brightness=False):
     lit = np.where(flat, cells.mean(axis=-1, keepdims=True) > 0.5, lit)
     return ~lit if invert_brightness else lit
 
-def shape_indices(img_gray, rows, cols, mode, invert_brightness=False):
-    """Map each cell to a sub-cell bit pattern (index into the mode's char list)."""
-    lit = shape_lit_mask(img_gray, rows, cols, mode, invert_brightness)
+def shape_indices_from_lit(lit):
+    """Pack a lit mask into a sub-cell bit pattern (index into the mode's char list)."""
     weights = (1 << np.arange(lit.shape[-1])).astype(np.int64)
     return (lit * weights).sum(axis=-1)
+
+def shape_indices(img_gray, rows, cols, mode, invert_brightness=False):
+    """Map each cell to a sub-cell bit pattern (index into the mode's char list)."""
+    return shape_indices_from_lit(shape_lit_mask(img_gray, rows, cols, mode, invert_brightness))
 
 def shape_cell_colors(frame, rows, cols, mode, lit):
     """
     Average the source color over lit and unlit subcells separately, so a cell
     can carry two colors. Returns (fg, bg), each (rows, cols, 3).
     """
-    cells = split_cells(frame, rows, cols, mode)
+    cells = split_cells(frame, rows, cols, *SHAPE_MODES[mode][:2])
     lit_f = lit[..., np.newaxis].astype(np.float32)
     lit_count = lit_f.sum(axis=2)
     unlit_count = (1.0 - lit_f).sum(axis=2)
@@ -177,6 +343,60 @@ def shape_cell_colors(frame, rows, cols, mode, lit):
 
     fg = np.where(lit_count > 0, (cells * lit_f).sum(axis=2) / np.maximum(lit_count, 1), cell_mean)
     bg = np.where(unlit_count > 0, (cells * (1.0 - lit_f)).sum(axis=2) / np.maximum(unlit_count, 1), cell_mean)
+    return fg, bg
+
+def mask_cell_samples(img_gray, rows, cols):
+    """Cell samples at MASK_RES x MASK_RES, scaled to 0..1 over the image's range."""
+    cells = split_cells(img_gray, rows, cols, MASK_RES, MASK_RES)
+    gray_min, gray_max = img_gray.min(), img_gray.max()
+    return (cells - gray_min) / (gray_max - gray_min) if gray_max > gray_min else cells / 255.0
+
+def mask_indices(img_gray, rows, cols, mode, invert_brightness=False):
+    """
+    Fit every glyph to every cell as a two-tone split and keep the best one, so
+    wedges and rectangular sub-cells compete on the same per-pixel error. The
+    error of a glyph is what its two region means leave behind; dropping the
+    constant sum of squares turns that into a quantity to maximize.
+    """
+    chars, masks = MASK_MODES[mode]
+    reps, mates = MASK_PAIRS[mode]
+    cells = mask_cell_samples(img_gray, rows, cols)
+    samples = cells.reshape(-1, masks.shape[1])
+
+    covered_area = masks[reps].sum(axis=-1)
+    bare_area = masks.shape[1] - covered_area
+    covered_sum = samples @ masks[reps].T
+    total = samples.sum(axis=-1, keepdims=True)
+    bare_sum = total - covered_sum
+
+    fit = (np.divide(covered_sum ** 2, covered_area, out=np.zeros_like(covered_sum), where=covered_area > 0)
+           + np.divide(bare_sum ** 2, bare_area, out=np.zeros_like(bare_sum), where=bare_area > 0))
+    best = fit.argmax(axis=-1)
+
+    # The brighter region is the one the glyph draws, unless brightness is inverted.
+    picked = np.take_along_axis(covered_sum, best[:, np.newaxis], axis=1)[:, 0]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        covered_brighter = picked / covered_area[best] >= (total[:, 0] - picked) / bare_area[best]
+    indices = np.where(covered_brighter ^ invert_brightness, reps[best], mates[best])
+
+    # Cells with nothing to split stay solid, so smooth areas do not turn into noise.
+    flat = (cells.max(axis=-1) - cells.min(axis=-1)).ravel() < SHAPE_CONTRAST_FLOOR
+    flat |= (covered_area[best] == 0) | (bare_area[best] == 0)
+    solid = (samples.mean(axis=-1) > 0.5) ^ invert_brightness
+    indices = np.where(flat, np.where(solid, chars.index("█"), chars.index(" ")), indices)
+    return indices.reshape(rows, cols)
+
+def mask_cell_colors(frame, rows, cols, mode, indices):
+    """Average the source color under and outside each chosen glyph. Returns (fg, bg)."""
+    _, masks = MASK_MODES[mode]
+    cells = split_cells(frame, rows, cols, MASK_RES, MASK_RES)
+    covered = masks[indices][..., np.newaxis]
+    lit_count = covered.sum(axis=2)
+    unlit_count = (1.0 - covered).sum(axis=2)
+    cell_mean = cells.mean(axis=2)
+
+    fg = np.where(lit_count > 1e-6, (cells * covered).sum(axis=2) / np.maximum(lit_count, 1e-6), cell_mean)
+    bg = np.where(unlit_count > 1e-6, (cells * (1.0 - covered)).sum(axis=2) / np.maximum(unlit_count, 1e-6), cell_mean)
     return fg, bg
 
 def apply_tint(colors, tint_color):
@@ -246,11 +466,24 @@ def render_shape_palette(char_width, char_height, bg_color, fg_color, mode):
                 palette[pattern, ys[row]:ys[row + 1], xs[col]:xs[col + 1]] = fg_color
     return palette
 
+def render_mask_palette(char_width, char_height, bg_color, fg_color, mode):
+    """
+    Draw the fitted glyphs by coverage, blending fg over bg so a slanted cut is
+    antialiased instead of stepped. Returns a numpy array (num_chars, h, w, 3).
+    """
+    coverage = np.stack([glyph_coverage(cover, char_width, char_height)
+                         for _, cover in MASK_GLYPHS[mode]])[..., np.newaxis]
+    blended = (np.array(fg_color, dtype=np.float32) * coverage +
+               np.array(bg_color, dtype=np.float32) * (1.0 - coverage))
+    return blended.round().astype(np.uint8)
+
 def pre_render_chars(font, char_width, char_height, bg_color, fg_color, mode="chars"):
     """
     Renders every ASCII char into a numpy array (stamp) once.
     Returns a numpy array of shape (num_chars, h, w, 3).
     """
+    if is_mask_mode(mode):
+        return render_mask_palette(char_width, char_height, bg_color, fg_color, mode)
     if is_shape_mode(mode):
         return render_shape_palette(char_width, char_height, bg_color, fg_color, mode)
 
@@ -336,7 +569,7 @@ def add_common_arguments(parser, input_help="Path to input file", output_help="P
     parser.add_argument("--bg-color", help="Background color (e.g., 'black', '#000000')", default="black")
     parser.add_argument("--fg-color", help="Foreground color (e.g., 'white', '#FFFFFF')", default="white")
     parser.add_argument("--invert-brightness", action="store_true", help="Invert brightness mapping (bright areas become dark characters)")
-    parser.add_argument("--mode", choices=list(MODE_CHARS.keys()), default="chars", help="Character set: 'chars' (default), 'blocks' (█ ▓ ▒ ░ space), 'alphabet' (a-z, A-Z), 'digits' (0-9), 'alphanumeric' (a-z, A-Z, 0-9), 'dots' (braille ⠁⠿⣿), or the sub-cell shape sets 'quadrants' (2x2 ▘▚▛), 'sextants' (2x3 🬀🬂🬎) and 'octants' (2x4 𜴀𜶮𜷝, sharpest)")
+    parser.add_argument("--mode", choices=list(MODE_CHARS.keys()), default="chars", help="Character set: 'chars' (default), 'blocks' (█ ▓ ▒ ░ space), 'alphabet' (a-z, A-Z), 'digits' (0-9), 'alphanumeric' (a-z, A-Z, 0-9), 'dots' (braille ⠁⠿⣿), or the sub-cell shape sets 'quadrants' (2x2 ▘▚▛), 'sextants' (2x3 🬀🬂🬎) and 'octants' (2x4 𜴀𜶮𜷝, sharpest), 'wedges' (diagonal 🬼🭀🭢, smoothest slants) or 'wedges-octants' (per cell, whichever fits better)")
     parser.add_argument("--preserve-colors", action="store_true", help="Preserve original colors (ignores fg-color, disables grayscale and normalization)")
     parser.add_argument("--tint", help="Tint color to apply when --preserve-colors is set (e.g., 'red', '#FF0000')", default=None)
     parser.add_argument("--adjust-aspect-ratio", action="store_true", help="For .txt output, adjust source image AR to compensate for terminal cell aspect (~1:2) so output is not stretched")
@@ -425,12 +658,16 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
     img_gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
 
     if is_shape_mode(mode):
-        lit = shape_lit_mask(img_gray, rows, cols, mode, invert_brightness)
-        weights = (1 << np.arange(lit.shape[-1])).astype(np.int64)
-        indices = (lit * weights).sum(axis=-1)
+        if is_mask_mode(mode):
+            indices = mask_indices(img_gray, rows, cols, mode, invert_brightness)
+            cell_colors = lambda: mask_cell_colors(frame, rows, cols, mode, indices)
+        else:
+            lit = shape_lit_mask(img_gray, rows, cols, mode, invert_brightness)
+            indices = shape_indices_from_lit(lit)
+            cell_colors = lambda: shape_cell_colors(frame, rows, cols, mode, lit)
         if not ansi_colors:
             return "\n".join("".join(chars[idx] for idx in row) for row in indices)
-        fg, bg = shape_cell_colors(frame, rows, cols, mode, lit)
+        fg, bg = cell_colors()
         if ansi_fg_only:
             return ansi_text(indices, chars, apply_tint(fg, tint_color))
         return ansi_text(indices, chars, apply_tint(fg, tint_color), apply_tint(bg, tint_color))
@@ -476,7 +713,10 @@ def process_frame(frame, options):
     rows = h // options.char_h
     
     shape_idx = None
-    if is_shape_mode(options.mode):
+    if is_mask_mode(options.mode):
+        shape_idx = mask_indices(cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY), rows, cols,
+                                 options.mode, options.invert_brightness)
+    elif is_shape_mode(options.mode):
         shape_idx = shape_indices(cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY), rows, cols,
                                   options.mode, options.invert_brightness)
     
