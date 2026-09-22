@@ -84,6 +84,8 @@ python ascii_video.py input.mp4 --preserve-colors --tint "#FF6600"
 (2x2, 2x3, 2x4) and pick the character matching the lit pattern, so a cell
 carries shape instead of just brightness - 8x the detail at the same grid size.
 Image and video output draws these glyphs directly, no font needed.
+`.txt` output is plain text unless `--ansi-colors` is set, which gives each
+cell a foreground and a background color - so a single cell can hold two colors.
 
 For `.txt` output the terminal has to render them:
 
@@ -127,6 +129,8 @@ python ascii_image.py <input_image> [options]
 - `--mode`: Character set - `chars` (default), `blocks` (█ ▓ ▒ ░ space), `alphabet`, `digits`, `alphanumeric`, `dots` (braille), or the sub-cell shape sets `quadrants` (2x2), `sextants` (2x3) and `octants` (2x4)
 - `--preserve-colors`: Preserve original colors from the image/video - ignores fg-color, disables grayscale conversion and brightness normalization
 - `--tint`: Tint color to apply when `--preserve-colors` is set - accepts color names or hex codes (e.g., "red", "#FF6600")
+- `--adjust-aspect-ratio`: For `.txt` output, compensate for the ~1:2 terminal cell aspect so the result is not stretched
+- `--ansi-colors`: For `.txt` output, emit 24-bit ANSI color codes from the source - shape modes color lit and unlit subcells separately
 
 ### Examples
 
@@ -160,6 +164,9 @@ python ascii_image.py input.jpg --mode octants
 
 # Preserve original colors
 python ascii_image.py input.jpg --preserve-colors
+
+# Colored terminal output
+python ascii_image.py input.jpg -o out.txt --mode octants --ansi-colors --adjust-aspect-ratio
 
 # Preserve colors with a tint
 python ascii_image.py input.jpg --preserve-colors --tint orange

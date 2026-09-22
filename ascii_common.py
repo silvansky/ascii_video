@@ -94,6 +94,8 @@ SHAPE_MODES = {
 # smooth areas from turning into noise.
 SHAPE_CONTRAST_FLOOR = 0.12
 
+ANSI_RESET = "\x1b[0m"
+
 @dataclass
 class AsciiFrameOptions:
     """Options for processing a frame into ASCII art."""
@@ -129,29 +131,101 @@ def is_shape_mode(mode):
     """True for modes that encode sub-cell shape instead of brightness."""
     return mode in SHAPE_MODES
 
-def shape_indices(img_gray, rows, cols, mode, invert_brightness=False):
-    """
-    Map each cell to a sub-cell bit pattern (index into the mode's char list).
-    Thresholds every cell at its own midpoint, so edges stay sharp.
-    """
+def split_cells(img, rows, cols, mode):
+    """Resize to sub-cell resolution and group as (rows, cols, subcells[, channels])."""
     sub_x, sub_y, _ = SHAPE_MODES[mode]
-    sub = cv2.resize(img_gray, (cols * sub_x, rows * sub_y), interpolation=cv2.INTER_AREA).astype(np.float32)
+    sub = cv2.resize(img, (cols * sub_x, rows * sub_y), interpolation=cv2.INTER_AREA).astype(np.float32)
+    if sub.ndim == 2:
+        return sub.reshape(rows, sub_y, cols, sub_x).transpose(0, 2, 1, 3).reshape(rows, cols, sub_y * sub_x)
+    channels = sub.shape[2]
+    return (sub.reshape(rows, sub_y, cols, sub_x, channels).transpose(0, 2, 1, 3, 4)
+               .reshape(rows, cols, sub_y * sub_x, channels))
 
-    sub_min, sub_max = sub.min(), sub.max()
-    sub = (sub - sub_min) / (sub_max - sub_min) if sub_max > sub_min else sub / 255.0
+def shape_lit_mask(img_gray, rows, cols, mode, invert_brightness=False):
+    """
+    Decide which subcells are lit, thresholding every cell at its own midpoint
+    so edges stay sharp. Returns a bool array (rows, cols, subcells).
+    """
+    gray_min, gray_max = img_gray.min(), img_gray.max()
+    cells = split_cells(img_gray, rows, cols, mode)
+    cells = (cells - gray_min) / (gray_max - gray_min) if gray_max > gray_min else cells / 255.0
 
-    cells = sub.reshape(rows, sub_y, cols, sub_x).transpose(0, 2, 1, 3).reshape(rows, cols, sub_y * sub_x)
     cell_min = cells.min(axis=-1, keepdims=True)
     cell_max = cells.max(axis=-1, keepdims=True)
 
     lit = cells > (cell_min + cell_max) / 2
     flat = (cell_max - cell_min) < SHAPE_CONTRAST_FLOOR
     lit = np.where(flat, cells.mean(axis=-1, keepdims=True) > 0.5, lit)
-    if invert_brightness:
-        lit = ~lit
+    return ~lit if invert_brightness else lit
 
-    weights = (1 << np.arange(sub_y * sub_x)).astype(np.int64)
+def shape_indices(img_gray, rows, cols, mode, invert_brightness=False):
+    """Map each cell to a sub-cell bit pattern (index into the mode's char list)."""
+    lit = shape_lit_mask(img_gray, rows, cols, mode, invert_brightness)
+    weights = (1 << np.arange(lit.shape[-1])).astype(np.int64)
     return (lit * weights).sum(axis=-1)
+
+def shape_cell_colors(frame, rows, cols, mode, lit):
+    """
+    Average the source color over lit and unlit subcells separately, so a cell
+    can carry two colors. Returns (fg, bg), each (rows, cols, 3).
+    """
+    cells = split_cells(frame, rows, cols, mode)
+    lit_f = lit[..., np.newaxis].astype(np.float32)
+    lit_count = lit_f.sum(axis=2)
+    unlit_count = (1.0 - lit_f).sum(axis=2)
+    cell_mean = cells.mean(axis=2)
+
+    fg = np.where(lit_count > 0, (cells * lit_f).sum(axis=2) / np.maximum(lit_count, 1), cell_mean)
+    bg = np.where(unlit_count > 0, (cells * (1.0 - lit_f)).sum(axis=2) / np.maximum(unlit_count, 1), cell_mean)
+    return fg, bg
+
+def apply_tint(colors, tint_color):
+    """Multiply colors by a tint, as the raster path does."""
+    if tint_color is None:
+        return colors
+    return colors * (np.array(tint_color, dtype=np.float32) / 255.0)
+
+def sgr(fg=None, bg=None):
+    """24-bit color escape for a foreground and/or background."""
+    codes = []
+    if fg is not None:
+        codes.append("38;2;%d;%d;%d" % tuple(fg))
+    if bg is not None:
+        codes.append("48;2;%d;%d;%d" % tuple(bg))
+    return "\x1b[%sm" % ";".join(codes) if codes else ""
+
+def ansi_text(indices, chars, fg, bg=None):
+    """
+    Join cells into colored lines. A color is emitted only when it changes and
+    only when the glyph shows it - a blank cell needs no foreground, a full
+    block no background.
+    """
+    fg = np.clip(fg, 0, 255).round().astype(int)
+    bg = None if bg is None else np.clip(bg, 0, 255).round().astype(int)
+
+    lines = []
+    for row in range(indices.shape[0]):
+        parts = []
+        current_fg = current_bg = None
+        for col in range(indices.shape[1]):
+            char = chars[indices[row, col]]
+            cell_fg = tuple(fg[row, col]) if char != " " else None
+            cell_bg = tuple(bg[row, col]) if bg is not None and char != "█" else None
+
+            if cell_fg == current_fg:
+                cell_fg = None
+            elif cell_fg is not None:
+                current_fg = cell_fg
+            if cell_bg == current_bg:
+                cell_bg = None
+            elif cell_bg is not None:
+                current_bg = cell_bg
+
+            parts.append(sgr(cell_fg, cell_bg))
+            parts.append(char)
+        parts.append(ANSI_RESET)
+        lines.append("".join(parts))
+    return "\n".join(lines)
 
 def render_shape_palette(char_width, char_height, bg_color, fg_color, mode):
     """
@@ -266,6 +340,7 @@ def add_common_arguments(parser, input_help="Path to input file", output_help="P
     parser.add_argument("--preserve-colors", action="store_true", help="Preserve original colors (ignores fg-color, disables grayscale and normalization)")
     parser.add_argument("--tint", help="Tint color to apply when --preserve-colors is set (e.g., 'red', '#FF0000')", default=None)
     parser.add_argument("--adjust-aspect-ratio", action="store_true", help="For .txt output, adjust source image AR to compensate for terminal cell aspect (~1:2) so output is not stretched")
+    parser.add_argument("--ansi-colors", action="store_true", help="For .txt output, emit 24-bit ANSI color codes taken from the source (shape modes color lit and unlit subcells separately)")
 
 def measure_font_metrics(font):
     """
@@ -332,10 +407,12 @@ def measure_font_metrics(font):
     # Return integer dimensions
     return int(round(char_w + padding_w)), int(round(char_h + padding_h))
 
-def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_dims=False, mode="chars"):
+def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_dims=False, mode="chars",
+                  ansi_colors=False, tint_color=None):
     """
     Convert a frame (RGB numpy array) into a multi-line ASCII string.
     Uses grayscale + min/max normalization for character selection.
+    With ansi_colors, each cell carries 24-bit color escapes taken from the source.
     """
     h, w = frame.shape[:2]
     if swap_dims:
@@ -346,8 +423,13 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
     img_gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
 
     if is_shape_mode(mode):
-        indices = shape_indices(img_gray, rows, cols, mode, invert_brightness)
-        return "\n".join("".join(chars[idx] for idx in row) for row in indices)
+        lit = shape_lit_mask(img_gray, rows, cols, mode, invert_brightness)
+        weights = (1 << np.arange(lit.shape[-1])).astype(np.int64)
+        indices = (lit * weights).sum(axis=-1)
+        if not ansi_colors:
+            return "\n".join("".join(chars[idx] for idx in row) for row in indices)
+        fg, bg = shape_cell_colors(frame, rows, cols, mode, lit)
+        return ansi_text(indices, chars, apply_tint(fg, tint_color), apply_tint(bg, tint_color))
 
     img_small = cv2.resize(img_gray, (cols, rows), interpolation=cv2.INTER_NEAREST)
 
@@ -364,7 +446,11 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
         indices = (img_normalized * (num_chars - 1)).astype(int)
     indices = np.clip(indices, 0, num_chars - 1)
 
-    return "\n".join("".join(chars[idx] for idx in row) for row in indices)
+    if not ansi_colors:
+        return "\n".join("".join(chars[idx] for idx in row) for row in indices)
+
+    cell_colors = cv2.resize(frame, (cols, rows), interpolation=cv2.INTER_AREA).astype(np.float32)
+    return ansi_text(indices, chars, apply_tint(cell_colors, tint_color))
 
 def process_frame(frame, options):
     """

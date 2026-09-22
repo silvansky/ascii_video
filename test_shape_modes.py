@@ -72,3 +72,57 @@ def test_render_shape_palette_tiles_the_whole_cell():
     top_left = palette[0b00000001]
     assert (top_left[0:2, 0:3] == 255).all()
     assert top_left.sum() == 2 * 3 * 3 * 255
+
+
+def test_sgr_builds_truecolor_codes():
+    from ascii_common import sgr
+
+    assert sgr((1, 2, 3)) == "\x1b[38;2;1;2;3m"
+    assert sgr((1, 2, 3), (4, 5, 6)) == "\x1b[38;2;1;2;3;48;2;4;5;6m"
+    assert sgr(None, (4, 5, 6)) == "\x1b[48;2;4;5;6m"
+    assert sgr() == ""
+
+
+def ansi_of(patterns, fg, bg=None):
+    from ascii_common import ansi_text
+
+    chars = MODE_CHARS["octants"]
+    indices = np.array([patterns])
+    fg = np.array([fg], dtype=float)
+    bg = None if bg is None else np.array([bg], dtype=float)
+    return ansi_text(indices, chars, fg, bg)
+
+
+def test_ansi_repeats_nothing_and_resets():
+    line = ansi_of([0b11111111, 0b11111111], [(10, 20, 30), (10, 20, 30)])
+    assert line == "\x1b[38;2;10;20;30m██\x1b[0m"
+
+
+def test_ansi_omits_colors_the_glyph_cannot_show():
+    blank = ansi_of([0], [(10, 20, 30)], [(1, 2, 3)])
+    assert "38;2" not in blank and "48;2;1;2;3" in blank
+
+    solid = ansi_of([255], [(10, 20, 30)], [(1, 2, 3)])
+    assert "48;2" not in solid and "38;2;10;20;30" in solid
+
+
+def test_frame_to_text_ansi_colors_lit_and_unlit_separately():
+    frame = np.zeros((8, 8, 3), dtype=np.uint8)
+    frame[:, :4] = (200, 100, 50)  # left half bright, right half black
+    text = frame_to_text(frame, char_w=8, char_h=8, chars=MODE_CHARS["octants"],
+                         mode="octants", ansi_colors=True)
+    assert text == "\x1b[38;2;200;100;50;48;2;0;0;0m▌\x1b[0m"
+
+
+def test_frame_to_text_ansi_tint():
+    frame = np.full((8, 8, 3), 255, dtype=np.uint8)
+    frame[:, 4:] = 0
+    text = frame_to_text(frame, char_w=8, char_h=8, chars=MODE_CHARS["octants"],
+                         mode="octants", ansi_colors=True, tint_color=(255, 0, 0))
+    assert "38;2;255;0;0" in text
+
+
+def test_ramp_mode_ansi_has_foreground_only():
+    frame = np.full((8, 8, 3), 255, dtype=np.uint8)
+    text = frame_to_text(frame, char_w=8, char_h=8, chars=MODE_CHARS["chars"], ansi_colors=True)
+    assert "38;2;255;255;255" in text and "48;2" not in text
