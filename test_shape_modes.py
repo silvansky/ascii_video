@@ -138,13 +138,36 @@ def test_fg_only_drops_background_codes():
     assert text == "\x1b[38;2;200;100;50m▌\x1b[0m"
 
 
-def test_fg_only_leaves_blank_cells_uncolored():
+def test_fg_only_fills_blank_cells_with_their_color():
     frame = np.zeros((8, 16, 3), dtype=np.uint8)
     frame[:, :8] = (200, 100, 50)
-    text = frame_to_text(frame, char_w=8, char_h=8, chars=MODE_CHARS["octants"],
-                         mode="octants", ansi_colors=True, ansi_fg_only=True)
-    assert text == "\x1b[38;2;200;100;50m█ \x1b[0m"
+    frame[:, 8:] = (60, 0, 0)
+    for mode in ("octants", "wedges"):
+        text = frame_to_text(frame, char_w=8, char_h=8, chars=MODE_CHARS[mode],
+                             mode=mode, ansi_colors=True, ansi_fg_only=True)
+        assert text == "\x1b[38;2;200;100;50m█\x1b[38;2;60;0;0m█\x1b[0m"
 
+
+
+def test_ramp_ansi_keeps_dark_opaque_cells_and_blanks_transparent():
+    frame = np.zeros((8, 24, 3), dtype=np.uint8)
+    frame[:, 8:16] = (40, 0, 0)
+    frame[:, 16:] = (250, 250, 250)
+    alpha = np.full((8, 24), 255, dtype=np.uint8)
+    alpha[:, :8] = 0
+    text = frame_to_text(frame, char_w=8, char_h=8, chars=MODE_CHARS["blocks"], mode="blocks",
+                         ansi_colors=True, ansi_fg_only=True, alpha=alpha)
+    assert text == " \x1b[38;2;40;0;0m░\x1b[38;2;250;250;250m█\x1b[0m"
+
+
+def test_fg_only_leaves_transparent_cells_blank():
+    frame = np.zeros((8, 16, 3), dtype=np.uint8)
+    frame[:, :8] = (200, 100, 50)
+    alpha = np.full((8, 16), 255, dtype=np.uint8)
+    alpha[:, 8:] = 0
+    text = frame_to_text(frame, char_w=8, char_h=8, chars=MODE_CHARS["octants"],
+                         mode="octants", ansi_colors=True, ansi_fg_only=True, alpha=alpha)
+    assert text == "\x1b[38;2;200;100;50m█ \x1b[0m"
 
 def diagonal_cell(size=48, slope=0.5):
     """Cell lit below the cut from the upper left corner to the lower centre."""

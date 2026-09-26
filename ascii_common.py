@@ -641,13 +641,21 @@ def measure_font_metrics(font):
     # Return integer dimensions
     return int(round(char_w + padding_w)), int(round(char_h + padding_h))
 
+def opaque_cells(alpha, rows, cols):
+    """True for cells that are mostly opaque. No alpha means everything is."""
+    if alpha is None:
+        return np.ones((rows, cols), dtype=bool)
+    return cv2.resize(alpha, (cols, rows), interpolation=cv2.INTER_AREA) >= 128
+
 def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_dims=False, mode="chars",
-                  ansi_colors=False, ansi_fg_only=False, tint_color=None):
+                  ansi_colors=False, ansi_fg_only=False, tint_color=None, alpha=None):
     """
     Convert a frame (RGB numpy array) into a multi-line ASCII string.
     Uses grayscale + min/max normalization for character selection.
     With ansi_colors, each cell carries 24-bit color escapes taken from the source;
     ansi_fg_only drops the background half, for consumers that ignore it.
+    Cells that alpha marks transparent stay blank; opaque ones never go blank in
+    color output, since a space cannot carry a foreground color.
     """
     h, w = frame.shape[:2]
     if swap_dims:
@@ -656,6 +664,7 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
     rows = h // char_h
 
     img_gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+    opaque = opaque_cells(alpha, rows, cols)
 
     if is_shape_mode(mode):
         if is_mask_mode(mode):
@@ -665,27 +674,33 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
             lit = shape_lit_mask(img_gray, rows, cols, mode, invert_brightness)
             indices = shape_indices_from_lit(lit)
             cell_colors = lambda: shape_cell_colors(frame, rows, cols, mode, lit)
+        blank = chars.index(" ")
+        indices = np.where(opaque, indices, blank)
         if not ansi_colors:
             return "\n".join("".join(chars[idx] for idx in row) for row in indices)
         fg, bg = cell_colors()
         if ansi_fg_only:
+            indices = np.where(opaque & (indices == blank), chars.index("█"), indices)
             return ansi_text(indices, chars, apply_tint(fg, tint_color))
         return ansi_text(indices, chars, apply_tint(fg, tint_color), apply_tint(bg, tint_color))
 
     img_small = cv2.resize(img_gray, (cols, rows), interpolation=cv2.INTER_NEAREST)
 
     num_chars = len(chars)
-    img_min, img_max = img_small.min(), img_small.max()
+    visible = img_small[opaque] if opaque.any() else img_small
+    img_min, img_max = visible.min(), visible.max()
     if img_max > img_min:
         img_normalized = (img_small - img_min) / (img_max - img_min)
     else:
         img_normalized = img_small / 255.0
 
     if invert_brightness:
-        indices = ((1.0 - img_normalized) * (num_chars - 1)).astype(int)
-    else:
-        indices = (img_normalized * (num_chars - 1)).astype(int)
-    indices = np.clip(indices, 0, num_chars - 1)
+        img_normalized = 1.0 - img_normalized
+    first = 1 if ansi_colors and chars[0] == " " and num_chars > 1 else 0
+    indices = first + (img_normalized * (num_chars - 1 - first)).astype(int)
+    indices = np.clip(indices, first, num_chars - 1)
+    if chars[0] == " ":
+        indices = np.where(opaque, indices, 0)
 
     if not ansi_colors:
         return "\n".join("".join(chars[idx] for idx in row) for row in indices)

@@ -15,6 +15,8 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
     """
     # Load image
     img = Image.open(image_path)
+    has_alpha = "A" in img.getbands() or "transparency" in img.info
+    alpha = np.array(img.convert("RGBA"))[..., 3] if has_alpha else None
 
     # Convert to RGB if needed
     if img.mode != 'RGB':
@@ -28,6 +30,8 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
         h, w = frame.shape[:2]
         new_h, new_w = int(h * scale), int(w * scale)
         frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+        if alpha is not None:
+            alpha = cv2.resize(alpha, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
 
     # Measure font metrics
     char_w, char_h = measure_font_metrics(font)
@@ -48,11 +52,13 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
         if adjust_aspect_ratio:
             new_h = max(1, int(round(h * char_h / (2 * char_w))))
             frame = cv2.resize(frame, (w, new_h), interpolation=cv2.INTER_AREA)
+            if alpha is not None:
+                alpha = cv2.resize(alpha, (w, new_h), interpolation=cv2.INTER_AREA)
             print(f"Adjusted AR: {w}x{h} -> {w}x{new_h}")
         print("Rendering text...")
         text = frame_to_text(frame, char_w, char_h, chars, invert_brightness=invert_brightness, mode=mode,
                              ansi_colors=ansi_colors or ansi_fg_only, ansi_fg_only=ansi_fg_only,
-                             tint_color=tint_color)
+                             tint_color=tint_color, alpha=alpha)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(text)
         print(f"Saved to {output_path}")
