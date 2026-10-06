@@ -268,6 +268,7 @@ class AsciiFrameOptions:
     swap_dims: bool = False  # If True, swap h and w (for rotated videos)
     mode: str = "chars"  # Character set name (shape modes select glyphs by sub-cell pattern)
     tint_color: tuple = None  # Tint color tuple (RGB) - applied when preserve_colors is True
+    alpha_palette: np.ndarray = None  # Optional glyph coverage (num_chars, char_h, char_w), 0-255; enables RGBA
 
 MODE_CHARS = {
     "chars": ASCII_CHARS,
@@ -648,14 +649,15 @@ def opaque_cells(alpha, rows, cols):
     return cv2.resize(alpha, (cols, rows), interpolation=cv2.INTER_AREA) >= 128
 
 def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_dims=False, mode="chars",
-                  ansi_colors=False, ansi_fg_only=False, tint_color=None, alpha=None):
+                  ansi_colors=False, ansi_fg_only=False, tint_color=None, alpha=None, transparent_bg=False):
     """
     Convert a frame (RGB numpy array) into a multi-line ASCII string.
     Uses grayscale + min/max normalization for character selection.
     With ansi_colors, each cell carries 24-bit color escapes taken from the source;
     ansi_fg_only drops the background half, for consumers that ignore it.
     Cells that alpha marks transparent stay blank; opaque ones never go blank in
-    color output, since a space cannot carry a foreground color.
+    color output, since a space cannot carry a foreground color. With
+    transparent_bg, blank glyphs stay blank and ANSI background colors are omitted.
     """
     h, w = frame.shape[:2]
     if swap_dims:
@@ -679,8 +681,9 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
         if not ansi_colors:
             return "\n".join("".join(chars[idx] for idx in row) for row in indices)
         fg, bg = cell_colors()
-        if ansi_fg_only:
-            indices = np.where(opaque & (indices == blank), chars.index("█"), indices)
+        if ansi_fg_only or transparent_bg:
+            if not transparent_bg:
+                indices = np.where(opaque & (indices == blank), chars.index("█"), indices)
             return ansi_text(indices, chars, apply_tint(fg, tint_color))
         return ansi_text(indices, chars, apply_tint(fg, tint_color), apply_tint(bg, tint_color))
 
@@ -696,7 +699,7 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
 
     if invert_brightness:
         img_normalized = 1.0 - img_normalized
-    first = 1 if ansi_colors and chars[0] == " " and num_chars > 1 else 0
+    first = 1 if ansi_colors and not transparent_bg and chars[0] == " " and num_chars > 1 else 0
     indices = first + (img_normalized * (num_chars - 1 - first)).astype(int)
     indices = np.clip(indices, first, num_chars - 1)
     if chars[0] == " ":
@@ -717,7 +720,7 @@ def process_frame(frame, options):
         options: AsciiFrameOptions object containing processing parameters
     
     Returns:
-        numpy array of shape (rows * char_h, cols * char_w, 3) - ASCII art image
+        RGB image, or RGBA when alpha_palette is supplied
     """
     h, w = frame.shape[:2]
     if options.swap_dims:
@@ -834,11 +837,19 @@ def process_frame(frame, options):
         # The Magic Trick (Advanced Numpy Indexing)
         tiled_chars = options.char_palette[indices]
 
+    if options.alpha_palette is not None:
+        # Store straight foreground colors and glyph coverage separately to avoid
+        # background-colored fringes when compositing antialiased edges.
+        coverage = options.alpha_palette[indices][..., np.newaxis]
+        colors = cell_colors_expanded if options.preserve_colors else np.array(options.fg_color)
+        rgb = np.broadcast_to(colors, tiled_chars.shape).astype(np.uint8)
+        tiled_chars = np.concatenate((rgb, coverage), axis=-1)
+
     # Stitching (Reshaping)
     # Swap axes to: (rows, char_h, cols, char_w, 3)
     tiled_chars = tiled_chars.swapaxes(1, 2)
     
     # Collapse the grid
-    final_frame = tiled_chars.reshape(rows * options.char_h, cols * options.char_w, 3)
+    final_frame = tiled_chars.reshape(rows * options.char_h, cols * options.char_w, tiled_chars.shape[-1])
     
     return final_frame

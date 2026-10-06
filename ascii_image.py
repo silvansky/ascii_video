@@ -9,10 +9,20 @@ from ascii_common import (
     measure_font_metrics, process_frame, AsciiFrameOptions, add_common_arguments
 )
 
-def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, mode="chars", preserve_colors=False, tint_color=None, adjust_aspect_ratio=False, ansi_colors=False, ansi_fg_only=False):
+def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, mode="chars", preserve_colors=False, tint_color=None, adjust_aspect_ratio=False, ansi_colors=False, ansi_fg_only=False, transparent_bg=False):
     """
     Fast processing using Numpy tiling.
+    transparent_bg renders RGBA glyphs and retains source alpha for PNG, WebP
+    or TIFF output; text output keeps blank cells and omits background codes.
     """
+    if transparent_bg and os.path.splitext(output_path)[1].lower() not in (".png", ".webp", ".tif", ".tiff", ".txt"):
+        raise ValueError("--transparent-bg requires PNG, WebP or TIFF image output, or .txt (e.g. -o output.png)")
+    if transparent_bg:
+        from PIL import ImageColor
+        if isinstance(bg_color, str):
+            bg_color = ImageColor.getcolor(bg_color, "RGB")
+        if isinstance(fg_color, str):
+            fg_color = ImageColor.getcolor(fg_color, "RGB")
     # Load image
     img = Image.open(image_path)
     has_alpha = "A" in img.getbands() or "transparency" in img.info
@@ -58,7 +68,7 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
         print("Rendering text...")
         text = frame_to_text(frame, char_w, char_h, chars, invert_brightness=invert_brightness, mode=mode,
                              ansi_colors=ansi_colors or ansi_fg_only, ansi_fg_only=ansi_fg_only,
-                             tint_color=tint_color, alpha=alpha)
+                             tint_color=tint_color, alpha=alpha, transparent_bg=transparent_bg)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(text)
         print(f"Saved to {output_path}")
@@ -66,6 +76,9 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
 
     # Pre-render fonts to a lookup table (The Palette)
     char_palette = pre_render_chars(font, char_w, char_h, bg_color, fg_color, mode)
+    alpha_palette = None
+    if transparent_bg:
+        alpha_palette = pre_render_chars(font, char_w, char_h, (0, 0, 0), (255, 255, 255), mode)[..., 0]
     num_chars = len(chars)
 
     print("Rendering image...")
@@ -82,11 +95,16 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
         fg_color=fg_color,
         swap_dims=False,
         tint_color=tint_color,
-        mode=mode
+        mode=mode,
+        alpha_palette=alpha_palette
     )
     
     # Process frame using common function
     final_image = process_frame(frame, options)
+    if transparent_bg and alpha is not None:
+        out_h, out_w = final_image.shape[:2]
+        source_alpha = cv2.resize(alpha, (out_w, out_h), interpolation=cv2.INTER_AREA)
+        final_image[..., 3] = np.rint(final_image[..., 3].astype(np.float32) * source_alpha / 255.0).astype(np.uint8)
     
     # Convert back to PIL Image and save
     output_img = Image.fromarray(final_image.astype(np.uint8))
@@ -96,11 +114,15 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
 def main():
     parser = argparse.ArgumentParser(description="Fast ASCII Image Generator")
     add_common_arguments(parser, input_help="Path to input image file", output_help="Path to output image file")
+    parser.add_argument("--transparent-bg", action="store_true",
+                        help="Render a transparent background (PNG/WebP/TIFF; defaults to PNG); for .txt, keep blank cells and omit ANSI background colors")
     args = parser.parse_args()
     
     # Set default output filename if not provided
     if args.output is None:
         base, ext = os.path.splitext(args.input)
+        if args.transparent_bg:
+            ext = ".png"
         args.output = f"{base}_ascii{ext}"
     
     # Parse colors
@@ -119,9 +141,10 @@ def main():
     # Font loading
     font = load_font(args.fontsize)
     try:
-        process_image_numpy(args.input, font, args.output, args.scale, bg_color, fg_color, args.invert_brightness, args.mode, args.preserve_colors, tint_color, args.adjust_aspect_ratio, args.ansi_colors, args.ansi_fg_only)
+        process_image_numpy(args.input, font, args.output, args.scale, bg_color, fg_color, args.invert_brightness, args.mode, args.preserve_colors, tint_color, args.adjust_aspect_ratio, args.ansi_colors, args.ansi_fg_only, transparent_bg=args.transparent_bg)
     except Exception as e:
         print(f"Error: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

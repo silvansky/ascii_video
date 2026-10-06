@@ -151,6 +151,7 @@ python ascii_image.py <input_image> [options]
 - `--adjust-aspect-ratio`: For `.txt` output, compensate for the ~1:2 terminal cell aspect so the result is not stretched
 - `--ansi-colors`: For `.txt` output, emit 24-bit ANSI color codes from the source - shape modes color lit and unlit subcells separately
 - `--ansi-fg-only`: Like `--ansi-colors` but foreground only, for consumers that ignore background codes
+- `--transparent-bg`: Render glyphs on a transparent background, retaining input transparency and antialiased edges. Overrides `--bg-color`; image output requires PNG, WebP or TIFF and defaults to `<input>_ascii.png`. For `.txt`, keeps blank cells as spaces and omits ANSI background colors, including with `--ansi-fg-only`.
 
 ### Examples
 
@@ -160,6 +161,9 @@ python ascii_image.py input.jpg
 
 # Custom output filename
 python ascii_image.py input.jpg -o my_ascii_image.png
+
+# Transparent background (outputs to input_ascii.png)
+python ascii_image.py input.jpg --transparent-bg
 
 # Higher resolution (smaller font)
 python ascii_image.py input.jpg -f 8
