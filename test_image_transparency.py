@@ -85,3 +85,58 @@ def test_transparent_text_cli(tmp_path, monkeypatch):
     assert "48;2" not in text
     plain = re.sub(r"\x1b\[[0-9;]*m", "", text)
     assert all(line.startswith(" ") and line.endswith("█") for line in plain.splitlines())
+
+
+@pytest.mark.parametrize("mode", ["quadrants", "sextants", "octants", "wedges", "wedges-octants", "blocks"])
+def test_transparent_fg_only_preserves_opaque_solid_colors(mode):
+    from ascii_common import MODE_CHARS, frame_to_text
+
+    frame = np.zeros((16, 64, 3), dtype=np.uint8)
+    frame[:, 16:32] = (255, 0, 0)  # Red is below the grayscale midpoint.
+    frame[:, 48:] = 255
+    alpha = np.full((16, 64), 255, dtype=np.uint8)
+    alpha[:, :16] = 0
+    text = frame_to_text(
+        frame, 16, 16, MODE_CHARS[mode], mode=mode,
+        ansi_colors=True, ansi_fg_only=True, transparent_bg=True, alpha=alpha,
+    )
+    red_glyph, black_glyph = ("░", "░") if mode == "blocks" else ("█", "█")
+    assert text == (
+        f" \x1b[38;2;255;0;0m{red_glyph}"
+        f"\x1b[38;2;0;0;0m{black_glyph}\x1b[38;2;255;255;255m█\x1b[0m"
+    )
+
+
+@pytest.mark.parametrize("mode", ["quadrants", "sextants", "octants", "wedges", "wedges-octants", "blocks"])
+def test_transparent_fg_only_without_alpha_keeps_red_and_dark_gray(mode):
+    from ascii_common import MODE_CHARS, frame_to_text
+
+    frame = np.full((16, 64, 3), 2, dtype=np.uint8)
+    frame[:, 16:32] = (255, 0, 0)
+    frame[:, 32:48] = 20
+    frame[:, 48:] = 255
+    text = frame_to_text(
+        frame, 16, 16, MODE_CHARS[mode], mode=mode,
+        ansi_colors=True, ansi_fg_only=True, transparent_bg=True,
+    )
+    glyph = "░" if mode == "blocks" else "█"
+    assert text == (
+        f" \x1b[38;2;255;0;0m{glyph}"
+        f"\x1b[38;2;20;20;20m{glyph}\x1b[38;2;255;255;255m█\x1b[0m"
+    )
+
+
+def test_transparent_fg_only_preserves_enclosed_black_details_without_alpha():
+    from ascii_common import MODE_CHARS, frame_to_text
+
+    frame = np.full((80, 80, 3), 2, dtype=np.uint8)
+    frame[16:64, 16:64] = (255, 0, 0)
+    frame[32:48, 32:48] = 0
+    text = frame_to_text(
+        frame, 16, 16, MODE_CHARS["sextants"], mode="sextants",
+        ansi_colors=True, ansi_fg_only=True, transparent_bg=True,
+    )
+    assert text.splitlines()[0] == "     \x1b[0m"
+    assert text.splitlines()[2] == (
+        " \x1b[38;2;255;0;0m█\x1b[38;2;0;0;0m█\x1b[38;2;255;0;0m█ \x1b[0m"
+    )

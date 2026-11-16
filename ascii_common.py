@@ -648,6 +648,15 @@ def opaque_cells(alpha, rows, cols):
         return np.ones((rows, cols), dtype=bool)
     return cv2.resize(alpha, (cols, rows), interpolation=cv2.INTER_AREA) >= 128
 
+def text_background_cells(frame, rows, cols):
+    """Infer near-black, edge-connected background when source alpha is absent."""
+    colors = cv2.resize(frame, (cols, rows), interpolation=cv2.INTER_AREA)
+    # Allow small compression artifacts in otherwise black JPEG backgrounds.
+    near_black = (colors.max(axis=-1) <= 8).astype(np.uint8)
+    _, labels = cv2.connectedComponents(near_black, connectivity=4)
+    edge_labels = np.unique(np.concatenate((labels[0], labels[-1], labels[:, 0], labels[:, -1])))
+    return np.isin(labels, edge_labels[edge_labels != 0])
+
 def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_dims=False, mode="chars",
                   ansi_colors=False, ansi_fg_only=False, tint_color=None, alpha=None, transparent_bg=False):
     """
@@ -657,7 +666,9 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
     ansi_fg_only drops the background half, for consumers that ignore it.
     Cells that alpha marks transparent stay blank; opaque ones never go blank in
     color output, since a space cannot carry a foreground color. With
-    transparent_bg, blank glyphs stay blank and ANSI background colors are omitted.
+    transparent_bg, blank glyphs stay blank and ANSI background colors are omitted,
+    except that foreground-only output keeps opaque cells visible. Without source
+    alpha, it infers background from near-black cells connected to image edges.
     """
     h, w = frame.shape[:2]
     if swap_dims:
@@ -667,6 +678,9 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
 
     img_gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
     opaque = opaque_cells(alpha, rows, cols)
+    if ansi_colors and ansi_fg_only and transparent_bg and alpha is None:
+        opaque &= ~text_background_cells(frame, rows, cols)
+    keep_blank_glyphs = transparent_bg and not ansi_fg_only
 
     if is_shape_mode(mode):
         if is_mask_mode(mode):
@@ -682,7 +696,7 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
             return "\n".join("".join(chars[idx] for idx in row) for row in indices)
         fg, bg = cell_colors()
         if ansi_fg_only or transparent_bg:
-            if not transparent_bg:
+            if not keep_blank_glyphs:
                 indices = np.where(opaque & (indices == blank), chars.index("█"), indices)
             return ansi_text(indices, chars, apply_tint(fg, tint_color))
         return ansi_text(indices, chars, apply_tint(fg, tint_color), apply_tint(bg, tint_color))
@@ -699,7 +713,7 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
 
     if invert_brightness:
         img_normalized = 1.0 - img_normalized
-    first = 1 if ansi_colors and not transparent_bg and chars[0] == " " and num_chars > 1 else 0
+    first = 1 if ansi_colors and not keep_blank_glyphs and chars[0] == " " and num_chars > 1 else 0
     indices = first + (img_normalized * (num_chars - 1 - first)).astype(int)
     indices = np.clip(indices, first, num_chars - 1)
     if chars[0] == " ":
