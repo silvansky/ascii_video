@@ -29,6 +29,27 @@ async def ready(app, pilot):
     pytest.fail(f"Preview did not finish: {app.query_one('#status', Static).content}")
 
 
+@pytest.mark.parametrize("flags", [[], ["--ansi-fg-only"], ["--ansi-colors", "--transparent-bg"]])
+def test_background_change_repaints_existing_preview(source, flags):
+    async def check():
+        app = AsciiImageApp(create_parser().parse_args([str(source), *flags]))
+        async with app.run_test() as pilot:
+            await ready(app, pilot)
+            preview = app.query_one("#preview", Static)
+            original_text = app.preview_text
+            # Prime the rendered-line cache before changing the inherited colors.
+            assert all(segment.style.bgcolor.get_truecolor() == (0, 0, 0)
+                       for segment in preview.render_line(0) if segment.text)
+            for color, expected in [("#112233", (17, 34, 51)), ("white", (255, 255, 255))]:
+                app.query_one("#bg_color", Input).value = color
+                await pilot.pause(0.2)
+                await ready(app, pilot)
+                assert app.preview_text == original_text
+                assert all(segment.style.bgcolor.get_truecolor() == expected
+                           for segment in preview.render_line(0) if segment.text)
+    asyncio.run(check())
+
+
 def test_controls_preview_and_save_match_cli(source, tmp_path):
     async def check():
         args = create_parser().parse_args([str(source)])

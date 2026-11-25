@@ -156,10 +156,13 @@ class AsciiImageApp(App):
             return  # A previous render must never replace newer settings.
         self.preview_text = text
         preview = self.query_one("#preview", Static)
-        preview.update(rendered)
         area = self.query_one("#preview-scroll")
-        area.styles.background = "rgb(%d,%d,%d)" % colors["bg_color"]
-        area.styles.color = "rgb(%d,%d,%d)" % colors["fg_color"]
+        # Style the text widget itself to invalidate its cached rendered lines;
+        # changing only its parent's colors leaves the old background cached.
+        for widget in (area, preview):
+            widget.styles.background = "rgb(%d,%d,%d)" % colors["bg_color"]
+            widget.styles.color = "rgb(%d,%d,%d)" % colors["fg_color"]
+        preview.update(rendered)
         self.query_one("#save", Button).disabled = False
         lines = rendered.plain.splitlines()
         self.query_one("#status", Static).update(
