@@ -648,14 +648,9 @@ def opaque_cells(alpha, rows, cols):
         return np.ones((rows, cols), dtype=bool)
     return cv2.resize(alpha, (cols, rows), interpolation=cv2.INTER_AREA) >= 128
 
-def text_background_cells(frame, rows, cols):
-    """Infer near-black, edge-connected background when source alpha is absent."""
-    colors = cv2.resize(frame, (cols, rows), interpolation=cv2.INTER_AREA)
-    # Allow small compression artifacts in otherwise black JPEG backgrounds.
-    near_black = (colors.max(axis=-1) <= 8).astype(np.uint8)
-    _, labels = cv2.connectedComponents(near_black, connectivity=4)
-    edge_labels = np.unique(np.concatenate((labels[0], labels[-1], labels[:, 0], labels[:, -1])))
-    return np.isin(labels, edge_labels[edge_labels != 0])
+def color_key_alpha(frame):
+    """Make every exact RGB match to the top-left pixel transparent."""
+    return np.where(np.all(frame == frame[0, 0], axis=-1), 0, 255).astype(np.uint8)
 
 def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_dims=False, mode="chars",
                   ansi_colors=False, ansi_fg_only=False, tint_color=None, alpha=None, transparent_bg=False):
@@ -668,7 +663,7 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
     color output, since a space cannot carry a foreground color. With
     transparent_bg, blank glyphs stay blank and ANSI background colors are omitted,
     except that foreground-only output keeps opaque cells visible. Without source
-    alpha, it infers background from near-black cells connected to image edges.
+    alpha, pixels matching the top-left RGB color are treated as transparent.
     """
     h, w = frame.shape[:2]
     if swap_dims:
@@ -677,9 +672,9 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
     rows = h // char_h
 
     img_gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+    if transparent_bg and alpha is None:
+        alpha = color_key_alpha(frame)
     opaque = opaque_cells(alpha, rows, cols)
-    if ansi_colors and ansi_fg_only and transparent_bg and alpha is None:
-        opaque &= ~text_background_cells(frame, rows, cols)
     keep_blank_glyphs = transparent_bg and not ansi_fg_only
 
     if is_shape_mode(mode):

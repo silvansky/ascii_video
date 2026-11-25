@@ -6,7 +6,8 @@ import cv2
 from PIL import Image
 from ascii_common import (
     select_chars, pre_render_chars, load_font, parse_colors, frame_to_text,
-    measure_font_metrics, process_frame, AsciiFrameOptions, add_common_arguments
+    measure_font_metrics, process_frame, AsciiFrameOptions, add_common_arguments,
+    color_key_alpha
 )
 
 def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, mode="chars", preserve_colors=False, tint_color=None, adjust_aspect_ratio=False, ansi_colors=False, ansi_fg_only=False, transparent_bg=False):
@@ -34,6 +35,10 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
 
     # Convert to numpy array
     frame = np.array(img)
+    if transparent_bg and alpha is None:
+        # Key the original pixels before scaling or aspect correction changes
+        # their colors, then resize this mask alongside the image.
+        alpha = color_key_alpha(frame)
 
     # Apply scale if needed
     if scale != 1.0:
@@ -115,7 +120,7 @@ def main():
     parser = argparse.ArgumentParser(description="Fast ASCII Image Generator")
     add_common_arguments(parser, input_help="Path to input image file", output_help="Path to output image file")
     parser.add_argument("--transparent-bg", action="store_true",
-                        help="Render a transparent background (PNG/WebP/TIFF; defaults to PNG); for .txt, keep blank cells and omit ANSI background colors")
+                        help="Render a transparent background (PNG/WebP/TIFF; defaults to PNG); without source alpha, make exact matches to the top-left pixel color transparent. For .txt, keep blank cells and omit ANSI background colors")
     args = parser.parse_args()
     
     # Set default output filename if not provided

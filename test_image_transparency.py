@@ -49,7 +49,7 @@ def test_transparent_cli_defaults_to_png(tmp_path, monkeypatch):
     ascii_image.main()
     with Image.open(tmp_path / "input_ascii.png") as result:
         assert result.mode == "RGBA"
-        assert result.getchannel("A").getextrema() == (0, 255)
+        assert result.getchannel("A").getextrema() == (0, 0)
 
 
 @pytest.mark.parametrize("mode", ["chars", "sextants", "wedges"])
@@ -140,3 +140,74 @@ def test_transparent_fg_only_preserves_enclosed_black_details_without_alpha():
     assert text.splitlines()[2] == (
         " \x1b[38;2;255;0;0m█\x1b[38;2;0;0;0m█\x1b[38;2;255;0;0m█ \x1b[0m"
     )
+
+
+@pytest.mark.parametrize("background", [(26, 25, 21), (255, 255, 255), (220, 20, 180)])
+@pytest.mark.parametrize("mode", ["blocks", "octants", "wedges"])
+@pytest.mark.parametrize("ansi,fg_only", [(False, False), (True, False), (True, True)])
+def test_top_left_color_is_transparent_including_enclosed_regions(background, mode, ansi, fg_only):
+    import re
+    from ascii_common import MODE_CHARS, frame_to_text
+
+    frame = np.full((80, 80, 3), background, dtype=np.uint8)
+    frame[16:64, 16:64] = (100, 180, 90)
+    frame[32:48, 32:48] = background
+    text = frame_to_text(
+        frame, 16, 16, MODE_CHARS[mode], mode=mode,
+        ansi_colors=ansi, ansi_fg_only=fg_only, transparent_bg=True,
+    )
+    lines = re.sub(r"\x1b\[[0-9;]*m", "", text).splitlines()
+    assert lines[0] == lines[-1] == "     "
+    assert all(line[0] == line[-1] == " " for line in lines)
+    assert lines[2][2] == " "
+    if fg_only:
+        assert lines[2][1] != " "
+
+
+def test_top_left_key_preserves_similar_colors_and_explicit_alpha():
+    from ascii_common import MODE_CHARS, frame_to_text
+
+    frame = np.full((16, 32, 3), (26, 25, 21), dtype=np.uint8)
+    frame[:, 16:] = (26, 25, 22)  # One channel differs by one.
+    for alpha in (None, np.full((16, 32), 255, dtype=np.uint8)):
+        text = frame_to_text(
+            frame, 16, 16, MODE_CHARS["blocks"], mode="blocks",
+            ansi_colors=True, ansi_fg_only=True, transparent_bg=True, alpha=alpha,
+        )
+        assert "\x1b[38;2;26;25;22m" in text
+        assert text.startswith(" ") == (alpha is None)
+
+
+@pytest.mark.parametrize("scale", [1.0, 0.5])
+def test_image_color_key_masks_original_pixels_before_scaling(tmp_path, monkeypatch, scale):
+    monkeypatch.setattr(ascii_image, "measure_font_metrics", lambda font: (16, 16))
+    source = np.full((160, 160, 3), 255, dtype=np.uint8)
+    source[32:128, 32:128] = (255, 0, 0)
+    source[64:96, 64:96] = 255
+    input_path = tmp_path / "input.png"
+    output_path = tmp_path / "output.png"
+    Image.fromarray(source).save(input_path)
+    ascii_image.process_image_numpy(
+        str(input_path), ascii_image.load_font(10), str(output_path),
+        mode="blocks", preserve_colors=True, transparent_bg=True, scale=scale,
+    )
+    with Image.open(output_path) as result:
+        alpha = np.array(result.getchannel("A"))
+    step = int(32 * scale)
+    assert (alpha[:step] == 0).all()
+    assert (alpha[2*step:3*step, 2*step:3*step] == 0).all()
+    assert alpha[step:2*step, step:2*step].max() > 0
+
+
+def test_color_key_uses_pixels_not_cell_average():
+    from ascii_common import MODE_CHARS, frame_to_text
+
+    # Both cells average to the key color, but only the first contains matches.
+    frame = np.full((16, 32, 3), 100, dtype=np.uint8)
+    frame[::2, 16:] = 90
+    frame[1::2, 16:] = 110
+    text = frame_to_text(
+        frame, 16, 16, MODE_CHARS["blocks"], mode="blocks",
+        ansi_colors=True, ansi_fg_only=True, transparent_bg=True,
+    )
+    assert text.startswith(" \x1b[38;2;100;100;100m")
