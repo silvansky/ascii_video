@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python ascii_image.py sunset.jpg -o /tmp/sunset_test.txt -s 0.3)",
+      "Bash(python ascii_image.py sunset.jpg -o /tmp/sunset_test.png -s 0.3)",
+      "Bash(python ascii_image.py sunset.jpg -o /tmp/sunset_blocks.txt -s 0.2 --blocks --invert-brightness)",
+      "Bash(awk 'NR<=3 {print length\\($0\\), NR}' /Users/valentine/Projects/ascii_video/cat_small.txt)",
+      "Bash(python3 *)",
+      "Read(//tmp/**)",
+      "Bash(python emoji_image.py cat_small.png -o /tmp/cat_emoji_test.txt -e 32)",
+      "Read(//private/tmp/**)",
+      "Bash(python emoji_image.py cat_small.png -o /tmp/cat_emoji_smiles.txt -e 16 --emoji-set smiles)",
+      "Bash(python emoji_image.py sunset.jpg -o /tmp/sunset_emoji.txt -e 32)",
+      "Bash(python *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}

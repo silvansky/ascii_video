@@ -36,7 +36,7 @@ python ascii_video.py <input_video> [options]
 - `--bg-color`: Background color - accepts color names (e.g., "black", "white") or hex codes (e.g., "#000000") (default: "black")
 - `--fg-color`: Foreground color - accepts color names (e.g., "white", "black") or hex codes (e.g., "#FFFFFF") (default: "white")
 - `--invert-brightness`: Invert brightness mapping - bright areas become dark characters, dark areas become bright characters
-- `--mode`: Character set - `chars` (default), `blocks` (█ ▓ ▒ ░ space), `alphabet`, `digits`, `alphanumeric`, `dots` (braille), or the sub-cell shape sets `quadrants` (2x2), `sextants` (2x3), `octants` (2x4), `wedges` (diagonal) and `wedges-octants` (both, per cell)
+- `--mode`: Character set - `chars` (default), `blocks` (█ ▓ ▒ ░ space), `solidblocks` (█ only), `alphabet`, `digits`, `alphanumeric`, `dots` (braille), or the sub-cell shape sets `quadrants` (2x2), `sextants` (2x3), `octants` (2x4), `wedges` (diagonal) and `wedges-octants` (both, per cell)
 - `--preserve-colors`: Preserve original colors from the image/video - ignores fg-color, disables grayscale conversion and brightness normalization
 - `--tint`: Tint color to apply when `--preserve-colors` is set - accepts color names or hex codes (e.g., "red", "#FF6600")
 
@@ -79,6 +79,16 @@ python ascii_video.py input.mp4 --preserve-colors
 # Preserve colors with a tint
 python ascii_video.py input.mp4 --preserve-colors --tint red
 python ascii_video.py input.mp4 --preserve-colors --tint "#FF6600"
+```
+
+`solidblocks` fills every opaque cell with `█`, regardless of brightness.
+Use `--ansi-colors` (or `--ansi-fg-only`) for colored text, or `--preserve-colors`
+for image/video output, to make a mosaic of solid cells in the source colors.
+Transparent text cells remain spaces. Without color output, all opaque cells
+use the same foreground; `--invert-brightness` does not change the solid glyph.
+
+```bash
+python ascii_image.py cyberd.png --mode solidblocks --ansi-fg-only --adjust-aspect-ratio --transparent-bg -o cyberd_solid.txt -s 3
 ```
 
 ### Sub-cell shape modes
@@ -145,7 +155,7 @@ python ascii_image.py <input_image> [options]
 - `--bg-color`: Background color - accepts color names (e.g., "black", "white") or hex codes (e.g., "#000000") (default: "black")
 - `--fg-color`: Foreground color - accepts color names (e.g., "white", "black") or hex codes (e.g., "#FFFFFF") (default: "white")
 - `--invert-brightness`: Invert brightness mapping - bright areas become dark characters, dark areas become bright characters
-- `--mode`: Character set - `chars` (default), `blocks` (█ ▓ ▒ ░ space), `alphabet`, `digits`, `alphanumeric`, `dots` (braille), or the sub-cell shape sets `quadrants` (2x2), `sextants` (2x3), `octants` (2x4), `wedges` (diagonal) and `wedges-octants` (both, per cell)
+- `--mode`: Character set - `chars` (default), `blocks` (█ ▓ ▒ ░ space), `solidblocks` (█ only), `alphabet`, `digits`, `alphanumeric`, `dots` (braille), or the sub-cell shape sets `quadrants` (2x2), `sextants` (2x3), `octants` (2x4), `wedges` (diagonal) and `wedges-octants` (both, per cell)
 - `--preserve-colors`: Preserve original colors from the image/video - ignores fg-color, disables grayscale conversion and brightness normalization
 - `--tint`: Tint color to apply when `--preserve-colors` is set - accepts color names or hex codes (e.g., "red", "#FF6600")
 - `--adjust-aspect-ratio`: For `.txt` output, compensate for the ~1:2 terminal cell aspect so the result is not stretched

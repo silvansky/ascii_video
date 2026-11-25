@@ -273,6 +273,7 @@ class AsciiFrameOptions:
 MODE_CHARS = {
     "chars": ASCII_CHARS,
     "blocks": ASCII_BLOCKS,
+    "solidblocks": ["█"],
     "alphabet": ASCII_ALPHABET,
     "digits": ASCII_DIGITS,
     "alphanumeric": ASCII_ALPHANUMERIC,
@@ -483,6 +484,10 @@ def pre_render_chars(font, char_width, char_height, bg_color, fg_color, mode="ch
     Renders every ASCII char into a numpy array (stamp) once.
     Returns a numpy array of shape (num_chars, h, w, 3).
     """
+    if mode == "solidblocks":
+        palette = np.empty((1, char_height, char_width, 3), dtype=np.uint8)
+        palette[:] = fg_color
+        return palette
     if is_mask_mode(mode):
         return render_mask_palette(char_width, char_height, bg_color, fg_color, mode)
     if is_shape_mode(mode):
@@ -570,7 +575,7 @@ def add_common_arguments(parser, input_help="Path to input file", output_help="P
     parser.add_argument("--bg-color", help="Background color (e.g., 'black', '#000000')", default="black")
     parser.add_argument("--fg-color", help="Foreground color (e.g., 'white', '#FFFFFF')", default="white")
     parser.add_argument("--invert-brightness", action="store_true", help="Invert brightness mapping (bright areas become dark characters)")
-    parser.add_argument("--mode", choices=list(MODE_CHARS.keys()), default="chars", help="Character set: 'chars' (default), 'blocks' (█ ▓ ▒ ░ space), 'alphabet' (a-z, A-Z), 'digits' (0-9), 'alphanumeric' (a-z, A-Z, 0-9), 'dots' (braille ⠁⠿⣿), or the sub-cell shape sets 'quadrants' (2x2 ▘▚▛), 'sextants' (2x3 🬀🬂🬎) and 'octants' (2x4 𜴀𜶮𜷝, sharpest), 'wedges' (diagonal 🬼🭀🭢, smoothest slants) or 'wedges-octants' (per cell, whichever fits better)")
+    parser.add_argument("--mode", choices=list(MODE_CHARS.keys()), default="chars", help="Character set: 'chars' (default), 'blocks' (█ ▓ ▒ ░ space), 'solidblocks' (█ only), 'alphabet' (a-z, A-Z), 'digits' (0-9), 'alphanumeric' (a-z, A-Z, 0-9), 'dots' (braille ⠁⠿⣿), or the sub-cell shape sets 'quadrants' (2x2 ▘▚▛), 'sextants' (2x3 🬀🬂🬎) and 'octants' (2x4 𜴀𜶮𜷝, sharpest), 'wedges' (diagonal 🬼🭀🭢, smoothest slants) or 'wedges-octants' (per cell, whichever fits better)")
     parser.add_argument("--preserve-colors", action="store_true", help="Preserve original colors (ignores fg-color, disables grayscale and normalization)")
     parser.add_argument("--tint", help="Tint color to apply when --preserve-colors is set (e.g., 'red', '#FF0000')", default=None)
     parser.add_argument("--adjust-aspect-ratio", action="store_true", help="For .txt output, adjust source image AR to compensate for terminal cell aspect (~1:2) so output is not stretched")
@@ -671,10 +676,19 @@ def frame_to_text(frame, char_w, char_h, chars, invert_brightness=False, swap_di
     cols = w // char_w
     rows = h // char_h
 
-    img_gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
     if transparent_bg and alpha is None:
         alpha = color_key_alpha(frame)
     opaque = opaque_cells(alpha, rows, cols)
+    if mode == "solidblocks":
+        # Spaces represent transparency only; brightness never changes the glyph.
+        text_chars = [" ", chars[0]]
+        indices = opaque.astype(int)
+        if not ansi_colors:
+            return "\n".join("".join(text_chars[idx] for idx in row) for row in indices)
+        cell_colors = cv2.resize(frame, (cols, rows), interpolation=cv2.INTER_AREA).astype(np.float32)
+        return ansi_text(indices, text_chars, apply_tint(cell_colors, tint_color))
+
+    img_gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
     keep_blank_glyphs = transparent_bg and not ansi_fg_only
 
     if is_shape_mode(mode):
