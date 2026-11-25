@@ -145,6 +145,32 @@ Convert single images to ASCII art images.
 python ascii_image.py <input_image> [options]
 ```
 
+### Interactive terminal preview
+
+```bash
+python ascii_image_tui.py input.png
+# Start with any of the image converter's options:
+python ascii_image_tui.py input.png --mode octants --ansi-fg-only --adjust-aspect-ratio -s 2
+```
+
+Install dependencies from `requirements.txt` first (the TUI uses Textual).
+The header contains a mode selector, scale and font-size editors, color/tint
+fields, and checkboxes for every boolean flag. Changes automatically refresh
+the scrollable preview below; ANSI colors are displayed as colors. Use Tab to
+move between controls, Space to toggle checkboxes, and arrows or the mouse to
+scroll the focused preview. Large previews scroll horizontally without wrapping.
+
+Edit **Save as** and click **Save** or press **Ctrl+S** to write the current
+preview as UTF-8 text, including ANSI escapes when enabled. The default is the
+input image path with its extension replaced by `.txt`; `-o` overrides it.
+Existing files require a second Save to replace them. **Ctrl+Q** quits.
+
+As in CLI text output, `--preserve-colors` only affects image output; use
+`--ansi-colors` or `--ansi-fg-only` to color text. BG and FG set the preview's
+base colors, while plain text files contain only characters. Tint applies to
+ANSI-colored text. Newer shape glyphs require a terminal that supports them
+(see the sub-cell shape modes section above).
+
 ### Options
 
 - `-o, --output`: Path to output image file (default: input filename with `_ascii` suffix, e.g., `input.jpg` → `input_ascii.jpg`)

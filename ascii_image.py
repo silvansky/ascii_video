@@ -1,6 +1,7 @@
 import argparse
 import sys
 import os
+import math
 import numpy as np
 import cv2
 from PIL import Image
@@ -10,31 +11,14 @@ from ascii_common import (
     color_key_alpha
 )
 
-def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, mode="chars", preserve_colors=False, tint_color=None, adjust_aspect_ratio=False, ansi_colors=False, ansi_fg_only=False, transparent_bg=False):
-    """
-    Fast processing using Numpy tiling.
-    transparent_bg renders RGBA glyphs and retains source alpha for PNG, WebP
-    or TIFF output; text output keeps blank cells and omits background codes.
-    """
-    if transparent_bg and os.path.splitext(output_path)[1].lower() not in (".png", ".webp", ".tif", ".tiff", ".txt"):
-        raise ValueError("--transparent-bg requires PNG, WebP or TIFF image output, or .txt (e.g. -o output.png)")
-    if transparent_bg:
-        from PIL import ImageColor
-        if isinstance(bg_color, str):
-            bg_color = ImageColor.getcolor(bg_color, "RGB")
-        if isinstance(fg_color, str):
-            fg_color = ImageColor.getcolor(fg_color, "RGB")
-    # Load image
-    img = Image.open(image_path)
-    has_alpha = "A" in img.getbands() or "transparency" in img.info
-    alpha = np.array(img.convert("RGBA"))[..., 3] if has_alpha else None
-
-    # Convert to RGB if needed
-    if img.mode != 'RGB':
-        img = img.convert('RGB')
-
-    # Convert to numpy array
-    frame = np.array(img)
+def load_scaled_image(image_path, scale=1.0, transparent_bg=False):
+    """Load RGB and alpha together, keying transparency before resizing."""
+    if not math.isfinite(scale) or scale <= 0:
+        raise ValueError("Scale must be a finite number greater than zero")
+    with Image.open(image_path) as img:
+        has_alpha = "A" in img.getbands() or "transparency" in img.info
+        alpha = np.array(img.convert("RGBA"))[..., 3] if has_alpha else None
+        frame = np.array(img.convert("RGB"))
     if transparent_bg and alpha is None:
         # Key the original pixels before scaling or aspect correction changes
         # their colors, then resize this mask alongside the image.
@@ -44,9 +28,46 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
     if scale != 1.0:
         h, w = frame.shape[:2]
         new_h, new_w = int(h * scale), int(w * scale)
+        if min(new_h, new_w) < 1:
+            raise ValueError("Scale is too small for this image")
         frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
         if alpha is not None:
             alpha = cv2.resize(alpha, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+    return frame, alpha
+
+
+def render_text(frame, alpha, font, mode="chars", invert_brightness=False,
+                adjust_aspect_ratio=False, ansi_colors=False, ansi_fg_only=False,
+                tint_color=None, transparent_bg=False):
+    """Render text in memory for both the CLI and interactive preview."""
+    char_w, char_h = measure_font_metrics(font)
+    h, w = frame.shape[:2]
+    if adjust_aspect_ratio:
+        new_h = max(1, int(round(h * char_h / (2 * char_w))))
+        frame = cv2.resize(frame, (w, new_h), interpolation=cv2.INTER_AREA)
+        if alpha is not None:
+            alpha = cv2.resize(alpha, (w, new_h), interpolation=cv2.INTER_AREA)
+    if frame.shape[0] < char_h or w < char_w:
+        raise ValueError("Image is smaller than one character; increase scale or reduce font size")
+    return frame_to_text(
+        frame, char_w, char_h, select_chars(mode),
+        invert_brightness=invert_brightness, mode=mode,
+        ansi_colors=ansi_colors or ansi_fg_only, ansi_fg_only=ansi_fg_only,
+        tint_color=tint_color, alpha=alpha, transparent_bg=transparent_bg,
+    )
+
+
+def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="black", fg_color="white", invert_brightness=False, mode="chars", preserve_colors=False, tint_color=None, adjust_aspect_ratio=False, ansi_colors=False, ansi_fg_only=False, transparent_bg=False):
+    """Render an image or text file, optionally retaining source transparency."""
+    if transparent_bg and os.path.splitext(output_path)[1].lower() not in (".png", ".webp", ".tif", ".tiff", ".txt"):
+        raise ValueError("--transparent-bg requires PNG, WebP or TIFF image output, or .txt (e.g. -o output.png)")
+    if transparent_bg:
+        from PIL import ImageColor
+        if isinstance(bg_color, str):
+            bg_color = ImageColor.getcolor(bg_color, "RGB")
+        if isinstance(fg_color, str):
+            fg_color = ImageColor.getcolor(fg_color, "RGB")
+    frame, alpha = load_scaled_image(image_path, scale, transparent_bg)
 
     # Measure font metrics
     char_w, char_h = measure_font_metrics(font)
@@ -64,16 +85,10 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
     chars = select_chars(mode)
 
     if output_path.lower().endswith(".txt"):
-        if adjust_aspect_ratio:
-            new_h = max(1, int(round(h * char_h / (2 * char_w))))
-            frame = cv2.resize(frame, (w, new_h), interpolation=cv2.INTER_AREA)
-            if alpha is not None:
-                alpha = cv2.resize(alpha, (w, new_h), interpolation=cv2.INTER_AREA)
-            print(f"Adjusted AR: {w}x{h} -> {w}x{new_h}")
         print("Rendering text...")
-        text = frame_to_text(frame, char_w, char_h, chars, invert_brightness=invert_brightness, mode=mode,
-                             ansi_colors=ansi_colors or ansi_fg_only, ansi_fg_only=ansi_fg_only,
-                             tint_color=tint_color, alpha=alpha, transparent_bg=transparent_bg)
+        text = render_text(frame, alpha, font, mode, invert_brightness,
+                           adjust_aspect_ratio, ansi_colors, ansi_fg_only,
+                           tint_color, transparent_bg)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(text)
         print(f"Saved to {output_path}")
@@ -116,12 +131,16 @@ def process_image_numpy(image_path, font, output_path, scale=1.0, bg_color="blac
     output_img.save(output_path)
     print(f"Saved to {output_path}")
 
-def main():
+def create_parser():
     parser = argparse.ArgumentParser(description="Fast ASCII Image Generator")
     add_common_arguments(parser, input_help="Path to input image file", output_help="Path to output image file")
     parser.add_argument("--transparent-bg", action="store_true",
                         help="Render a transparent background (PNG/WebP/TIFF; defaults to PNG); without source alpha, make exact matches to the top-left pixel color transparent. For .txt, keep blank cells and omit ANSI background colors")
-    args = parser.parse_args()
+    return parser
+
+
+def main():
+    args = create_parser().parse_args()
     
     # Set default output filename if not provided
     if args.output is None:

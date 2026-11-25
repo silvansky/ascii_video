@@ -3,3 +3,4 @@ pillow==9.5.0
 moviepy==1.0.3
 tqdm
 numpy
+textual>=8.0,<9

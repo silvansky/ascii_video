@@ -531,18 +531,20 @@ def pre_render_chars(font, char_width, char_height, bg_color, fg_color, mode="ch
     
     return np.stack(char_images)
 
-def load_font(fontsize=10, font_path="/System/Library/Fonts/Menlo.ttc"):
+def load_font(fontsize=10, font_path="/System/Library/Fonts/Menlo.ttc", quiet=False):
     """
     Load font from path, fallback to default if not found.
     Returns ImageFont object.
     """
     try:
         font = ImageFont.truetype(font_path, fontsize)
-        print(f"Font loaded: {font_path}")
+        if not quiet:
+            print(f"Font loaded: {font_path}")
         return font
     except IOError:
         font = ImageFont.load_default()
-        print("Using default font")
+        if not quiet:
+            print("Using default font")
         return font
 
 def parse_colors(bg_color_str, fg_color_str):
