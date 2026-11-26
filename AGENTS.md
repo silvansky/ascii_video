@@ -8,9 +8,10 @@
 
 ## Project overview
 
-This is a flat Python script repository for converting images and videos into
-ASCII or emoji art, with an interactive terminal preview for ASCII images.
-Run commands from the repository root; there is no package build step.
+This repository converts images and videos into ASCII or emoji art and provides
+an interactive terminal preview for ASCII images. The converter scripts and
+their shared modules live at the root. Run commands from the repository root.
+There is no package build step.
 
 ## Architecture
 
@@ -22,10 +23,10 @@ Run commands from the repository root; there is no package build step.
 | `ascii_image_tui.py` | Textual app using the image CLI's parser and text rendering pipeline; debounced background previews, ANSI display, and text saving. |
 | `emoji_common.py` | Emoji sets, font loading, average-color matching, pre-rendered palettes, `EmojiFrameOptions`, and common emoji CLI arguments. |
 | `emoji_image.py`, `emoji_video.py` | Emoji image/text and video entry points using the shared emoji engine. |
-| `measure_brightness.py` | Utility for measuring glyph brightness to help construct character ramps. |
-| `update_demo.py`, `update_demo_inverted.py` | Generate demo conversions and comparison collages from configured source paths. |
-| `generate_fontsize_demo.py`, `create_fontsize_gif.py` | Generate font-size examples and assemble their animation. |
-| `test_*.py` | Pytest coverage for shape modes, solid blocks, transparency, and the TUI. |
+| `tools/measure_brightness.py` | Utility for measuring glyph brightness to help construct character ramps. |
+| `demo/update_demo.py`, `demo/update_demo_inverted.py` | Generate demo conversions and comparison collages from configured source paths. |
+| `demo/generate_fontsize_demo.py`, `demo/create_fontsize_gif.py` | Generate font-size examples and assemble their animation. |
+| `tests/test_*.py` | Pytest coverage for shape modes, solid blocks, transparency, and the TUI. |
 
 Image inputs are loaded with Pillow into RGB NumPy arrays; OpenCV handles
 resizing and grayscale calculations. Raster conversion pre-renders a glyph
@@ -60,9 +61,9 @@ python emoji_video.py --help
 
 # Run the existing suite, or the files relevant to a change.
 python -m pytest -q
-python -m pytest -q test_shape_modes.py test_solidblocks.py
-python -m pytest -q test_image_transparency.py
-python -m pytest -q test_image_tui.py
+python -m pytest -q tests/test_shape_modes.py tests/test_solidblocks.py
+python -m pytest -q tests/test_image_transparency.py
+python -m pytest -q tests/test_image_tui.py
 ```
 
 TUI tests use Textual's headless `run_test()` and `asyncio.run()`; they do not
@@ -90,9 +91,10 @@ and audio; the existing suite does not cover video encoding or emoji rendering.
 
 The root contains many ASCII `.txt` outputs and media files. Treat them as
 user assets; do not overwrite, delete, or regenerate them as incidental cleanup.
-Use temporary directories for test output. Demo helpers use configured `demo/`
-paths, whose source media may be absent from a checkout. Inspect those paths
-before running helpers. Generated `.txt` files and many media extensions are
+Use temporary directories for test output. Demo helpers in `demo/` resolve their
+configured media paths from the repository root. Inspect those paths before
+running helpers, since some source media may be absent from a checkout.
+Generated `.txt` files and many media extensions are
 ignored by `.gitignore`; root `requirements.txt` is exempt and remains tracked.
 Art `.txt` outputs stay local and are not tracked. Check explicitly whether any
 intended demo artifact will be tracked.

@@ -161,18 +161,30 @@ Original images and their ASCII conversions at `-f 5`.
 
 [Side-by-side comparison video](demo/cat_src_collage.mp4) · [Demo video on YouTube](https://youtu.be/g1qp1b4tuAM)
 
+Run the demo scripts from the repository root. The update scripts use the
+source paths configured in each script, including a local `cat_src.mp4` for
+the comparison videos. The font-size scripts generate images in
+`demo/fontsize/` and assemble them into `demo/fontsize_animation.gif`.
+
+```bash
+python demo/update_demo.py
+python demo/update_demo_inverted.py
+python demo/generate_fontsize_demo.py
+python demo/create_fontsize_gif.py
+```
+
 ## Development
 
-Install pytest separately and run the test suite from the repository root.
+Install pytest separately and run the suite in `tests/` from the repository root.
 
 ```bash
 python -m pip install pytest
 python -m pytest -q
 ```
 
-Use `measure_brightness.py` to sort glyphs from darkest to lightest when
+Use `tools/measure_brightness.py` to sort glyphs from darkest to lightest when
 building a character ramp.
 
 ```bash
-python measure_brightness.py --show-values -f 10 . + '@' '#'
+python -m tools.measure_brightness --show-values -f 10 . + '@' '#'
 ```
