@@ -92,5 +92,7 @@ The root contains many ASCII `.txt` outputs and media files. Treat them as
 user assets; do not overwrite, delete, or regenerate them as incidental cleanup.
 Use temporary directories for test output. Demo helpers use configured `demo/`
 paths, whose source media may be absent from a checkout. Inspect those paths
-before running helpers. Many media extensions are ignored by `.gitignore`, so
-check explicitly whether any intended demo artifact will be tracked.
+before running helpers. Generated `.txt` files and many media extensions are
+ignored by `.gitignore`; root `requirements.txt` is exempt and remains tracked.
+Art `.txt` outputs stay local and are not tracked. Check explicitly whether any
+intended demo artifact will be tracked.

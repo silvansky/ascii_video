@@ -2,6 +2,8 @@
 
 Convert images and videos to ASCII art or emoji art.
 
+Generated `.txt` output stays local and is ignored by Git; `requirements.txt` is exempt and remains tracked.
+
 Tested on macOS only. Font loading should be updated for other systems.
 
 ## Installation

@@ -8,6 +8,10 @@ venv/
 env/
 ENV/
 
+# Generated text art
+*.txt
+!/requirements.txt
+
 # macOS files
 .DS_Store
 .AppleDouble
